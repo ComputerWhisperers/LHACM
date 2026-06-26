@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="LHACM icon">
+  <rect width="256" height="256" rx="48" fill="#132238"/>
+  <path d="M66 78h124v100H66z" fill="#f8fbff"/>
+  <path d="M82 94h92v68H82z" fill="#132238"/>
+  <path d="M96 110h64v12H96zm0 24h42v12H96z" fill="#41bdf5"/>
+  <path d="M55 104h22v18H55zm0 31h22v18H55zm124-31h22v18h-22zm0 31h22v18h-22z" fill="#fca121"/>
+  <path d="M109 184h38v18h-38z" fill="#41bdf5"/>
+  <path d="M91 202h74v14H91z" fill="#f8fbff"/>
+  <path d="M53 65h150v18H53z" fill="#41bdf5"/>
+  <path d="M71 51h114v14H71z" fill="#fca121"/>
+</svg>

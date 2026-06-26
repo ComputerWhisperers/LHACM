@@ -1,0 +1,20 @@
+{
+  "title": "LHACM",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up LHACM",
+        "data": {
+          "acknowledge_risk": "I understand that custom repositories are maintained outside Home Assistant and can change my system."
+        }
+      }
+    },
+    "error": {
+      "acknowledge": "You must acknowledge this before continuing.",
+      "unknown": "Unexpected error."
+    },
+    "abort": {
+      "already_configured": "This provider is already configured."
+    }
+  }
+}

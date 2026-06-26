@@ -1,0 +1,29 @@
+add_repository:
+  fields:
+    repository:
+      required: true
+      selector:
+        text:
+    category:
+      required: false
+      default: integration
+      selector:
+        select:
+          options:
+            - integration
+            - plugin
+            - theme
+            - python_script
+            - appdaemon
+            - template
+
+install_repository:
+  fields:
+    repository:
+      required: true
+      selector:
+        text:
+    ref:
+      required: false
+      selector:
+        text:
