@@ -192,16 +192,7 @@ class LhacmPanel extends HTMLElement {
         }
         .actions {
           text-align: right;
-          width: 220px;
-        }
-        .action-row {
-          display: flex;
-          justify-content: flex-end;
-          gap: 8px;
-        }
-        .action-row button {
-          height: 32px;
-          padding: 0 10px;
+          width: 56px;
         }
         .empty, .error {
           padding: 40px 24px;
@@ -224,6 +215,35 @@ class LhacmPanel extends HTMLElement {
           text-align: left;
           height: 50px;
           padding: 0 18px;
+        }
+        .row-menu-popover {
+          position: fixed;
+          width: 230px;
+          background: var(--card-background-color, #fff);
+          border: 1px solid var(--divider-color, #ddd);
+          box-shadow: 0 4px 12px rgba(0,0,0,.2);
+          z-index: 4;
+          padding: 8px 0;
+        }
+        .row-menu-popover button {
+          width: 100%;
+          height: 48px;
+          border: 0;
+          border-radius: 0;
+          text-align: left;
+          padding: 0 18px;
+          background: transparent;
+        }
+        .row-menu-popover .divider {
+          height: 1px;
+          background: var(--divider-color, #ddd);
+          margin: 8px 0;
+        }
+        .row-menu-popover .warning {
+          color: #f29900;
+        }
+        .row-menu-popover .danger {
+          color: #d93025;
         }
         .dialog-backdrop {
           position: fixed;
@@ -334,6 +354,7 @@ class LhacmPanel extends HTMLElement {
         <button id="refreshButton" title="Refresh">Refresh</button>
       </div>
       ${this._error ? `<div class="error">${this._escape(this._error)}</div>` : this._table(groups)}
+      ${this._rowMenu ? this._rowMenuTemplate() : ""}
       ${this._dialog ? this._dialogTemplate() : ""}
     `;
     this._bind();
@@ -352,7 +373,7 @@ class LhacmPanel extends HTMLElement {
       <th>Type</th>
       <th class="wide">Installed</th>
       <th class="wide">Latest</th>
-      <th class="actions">Actions</th>
+      <th class="actions"></th>
     </tr></thead><tbody>`);
     for (const [group, repos] of groups.entries()) {
       rows.push(`<tr class="group"><td colspan="8">^ ${this._groupLabel(group)}</td></tr>`);
@@ -368,7 +389,7 @@ class LhacmPanel extends HTMLElement {
           <td>${this._typeLabel(repo.category)}</td>
           <td class="wide">${this._escape(repo.installed_version || "-")}</td>
           <td class="wide">${this._escape(repo.available_version || "-")}</td>
-          <td class="actions">${this._actionButtons(repo)}</td>
+          <td class="actions"><button class="icon-button row-menu" data-id="${this._escape(repo.id)}">...</button></td>
         </tr>`);
       }
     }
@@ -429,10 +450,13 @@ class LhacmPanel extends HTMLElement {
       this._sort = ev.target.value;
       this._render();
     });
-    this.shadowRoot.querySelectorAll("[data-action]").forEach((button) => {
-      button.addEventListener("click", () =>
-        this._repositoryAction(button.dataset.action, button.dataset.id)
-      );
+    this.shadowRoot.querySelectorAll(".row-menu").forEach((button) => {
+      button.addEventListener("click", (ev) => this._openRowMenu(button.dataset.id, ev));
+    });
+    this.shadowRoot.querySelectorAll("[data-row-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        this._repositoryAction(button.dataset.rowAction, button.dataset.id);
+      });
     });
     this._on("closeDialog", "click", () => this._closeDialog());
     this._on("cancelDialog", "click", () => this._closeDialog());
@@ -483,28 +507,49 @@ class LhacmPanel extends HTMLElement {
     });
   }
 
-  _actionButtons(repo) {
+  _openRowMenu(id, ev) {
+    const rect = ev.target.getBoundingClientRect();
+    this._rowMenu = {
+      id,
+      top: Math.min(rect.bottom + 6, window.innerHeight - 330),
+      left: Math.max(8, Math.min(rect.right - 230, window.innerWidth - 238)),
+    };
+    this._render();
+  }
+
+  _rowMenuTemplate() {
+    const repo = this._repositories.find((item) => item.id === this._rowMenu.id);
+    if (!repo) return "";
     const id = this._escape(repo.id);
-    const buttons = [];
-    if (!repo.installed) {
-      buttons.push(`<button data-action="install" data-id="${id}">Install</button>`);
-    } else if (repo.pending_upgrade) {
-      buttons.push(`<button data-action="install" data-id="${id}">Update</button>`);
-      buttons.push(`<button data-action="uninstall" data-id="${id}">Uninstall</button>`);
-    } else {
-      buttons.push(`<button data-action="uninstall" data-id="${id}">Uninstall</button>`);
-    }
-    buttons.push(`<button data-action="remove" data-id="${id}">Delete</button>`);
-    return `<div class="action-row">${buttons.join("")}</div>`;
+    const primaryAction = repo.installed ? "redownload" : "install";
+    const primaryLabel = repo.installed
+      ? repo.pending_upgrade ? "Update" : "Redownload"
+      : "Download";
+    return `<div class="row-menu-popover" style="top:${this._rowMenu.top}px;left:${this._rowMenu.left}px">
+      <button data-row-action="details" data-id="${id}">Show details</button>
+      <button data-row-action="repository" data-id="${id}">Repository</button>
+      <button data-row-action="refresh" data-id="${id}">Update information</button>
+      <button data-row-action="${primaryAction}" data-id="${id}">${primaryLabel}</button>
+      <div class="divider"></div>
+      ${repo.installed ? `<button data-row-action="uninstall" data-id="${id}" class="warning">Uninstall</button>` : ""}
+      <button data-row-action="remove" data-id="${id}" class="danger">Remove</button>
+    </div>`;
   }
 
   _repositoryAction(action, id) {
-    if (action === "install") {
+    this._rowMenu = undefined;
+    if (action === "install" || action === "redownload") {
       this._download(id);
     } else if (action === "uninstall") {
       this._uninstall(id);
     } else if (action === "remove") {
       this._removeRepository(id);
+    } else if (action === "refresh") {
+      this._refreshOne(id);
+    } else if (action === "repository") {
+      this._openRepository(id);
+    } else if (action === "details") {
+      this._showDetails(id);
     }
   }
 
@@ -539,6 +584,31 @@ class LhacmPanel extends HTMLElement {
       this._error = err.message || String(err);
       this._render();
     });
+  }
+
+  _refreshOne(id) {
+    this._send({ type: "lhacm/repository/refresh", repository: id }).then(() => {
+      return this._send({ type: "lhacm/repositories/list" });
+    }).then((repositories) => {
+      this._repositories = repositories;
+      this._render();
+    });
+  }
+
+  _openRepository(id) {
+    const repo = this._repositories.find((item) => item.id === id);
+    if (repo && repo.source_url) {
+      window.open(repo.source_url, "_blank");
+    }
+    this._render();
+  }
+
+  _showDetails(id) {
+    const repo = this._repositories.find((item) => item.id === id);
+    if (repo) {
+      alert(`${repo.name}\n${repo.full_name}\nInstalled: ${repo.installed_version || "-"}\nLatest: ${repo.available_version || "-"}`);
+    }
+    this._render();
   }
 
 

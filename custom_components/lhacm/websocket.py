@@ -21,6 +21,7 @@ def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, lhacm_repositories_add)
     websocket_api.async_register_command(hass, lhacm_repositories_remove)
     websocket_api.async_register_command(hass, lhacm_repositories_refresh)
+    websocket_api.async_register_command(hass, lhacm_repository_refresh)
     websocket_api.async_register_command(hass, lhacm_repository_download)
     websocket_api.async_register_command(hass, lhacm_repository_uninstall)
 
@@ -141,6 +142,35 @@ async def lhacm_repositories_refresh(
             [_repository_payload(repo) for repo in runtime.repositories.values()],
         )
     )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "lhacm/repository/refresh",
+        vol.Required("repository"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def lhacm_repository_refresh(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Refresh one repository."""
+    runtime = _runtime(hass)
+    repository = runtime.repositories.get(msg["repository"])
+    if repository is None:
+        connection.send_error(msg["id"], "repository_not_found", "Repository not found")
+        return
+
+    try:
+        repository = await runtime.refresh_repository(repository)
+    except LHACMError as exception:
+        connection.send_error(msg["id"], "refresh_error", str(exception))
+        return
+
+    connection.send_message(websocket_api.result_message(msg["id"], _repository_payload(repository)))
 
 
 @websocket_api.websocket_command(
