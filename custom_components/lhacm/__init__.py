@@ -9,7 +9,9 @@ from pathlib import Path
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers import aiohttp_client
 import voluptuous as vol
 
@@ -17,6 +19,7 @@ from .const import (
     DOMAIN,
     ProviderType,
     RepositoryCategory,
+    SIGNAL_REPOSITORIES_UPDATED,
 )
 from .exceptions import LHACMError
 from .models import ManagedRepository, RepositoryRef
@@ -29,6 +32,8 @@ from .websocket import async_setup as async_setup_websocket
 LOGGER = logging.getLogger(__name__)
 
 type LHACMConfigEntry = ConfigEntry[LHACMRuntime]
+
+PLATFORMS = [Platform.UPDATE]
 
 
 @dataclass
@@ -53,6 +58,27 @@ class LHACMRuntime:
         """Validate a repository, probing unknown local hosts as GitLab then Gitea."""
         return await _validate_repository(self.hass, self, ref, category)
 
+    async def save(self) -> None:
+        """Persist repositories and notify listeners."""
+        await self.store.async_save(self.repositories)
+        async_dispatcher_send(self.hass, SIGNAL_REPOSITORIES_UPDATED)
+
+    async def refresh_repository(self, repository: ManagedRepository) -> ManagedRepository:
+        """Refresh a repository from its provider."""
+        manager = self.manager_for_ref(repository.ref)
+        refreshed = await manager.async_refresh(repository)
+        self.repositories[refreshed.key] = refreshed
+        await self.save()
+        return refreshed
+
+    async def refresh_all(self) -> None:
+        """Refresh all known repositories."""
+        for repository in list(self.repositories.values()):
+            try:
+                await self.refresh_repository(repository)
+            except LHACMError as exception:
+                LOGGER.warning("Could not refresh %s: %s", repository.ref.full_name, exception)
+
 
 ADD_REPOSITORY_SCHEMA = vol.Schema(
     {
@@ -69,6 +95,8 @@ INSTALL_REPOSITORY_SCHEMA = vol.Schema(
         vol.Optional("ref"): str,
     }
 )
+
+REPOSITORY_KEY_SCHEMA = vol.Schema({vol.Required("repository"): str})
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> bool:
@@ -89,7 +117,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
         category = RepositoryCategory(call.data["category"])
         repository = await _validate_repository(hass, runtime, ref, category)
         runtime.repositories[repository.key] = repository
-        await runtime.store.async_save(runtime.repositories)
+        await runtime.save()
         LOGGER.info("Added %s repository %s", category, repository.ref.full_name)
 
     async def install_repository(call: ServiceCall) -> None:
@@ -105,8 +133,27 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
         manager = _manager_for_ref(hass, runtime, repository.ref)
         repository = await manager.async_install(repository, ref=call.data.get("ref"))
         runtime.repositories[repository.key] = repository
-        await runtime.store.async_save(runtime.repositories)
+        await runtime.save()
         LOGGER.info("Installed repository %s", ref.full_name)
+
+    async def uninstall_repository(call: ServiceCall) -> None:
+        repository = runtime.repositories[call.data["repository"]]
+        manager = runtime.manager_for_ref(repository.ref)
+        repository = await manager.async_uninstall(repository)
+        runtime.repositories[repository.key] = repository
+        await runtime.save()
+        LOGGER.info("Uninstalled repository %s", repository.ref.full_name)
+
+    async def remove_repository(call: ServiceCall) -> None:
+        repository = runtime.repositories.get(call.data["repository"])
+        if repository and repository.installed:
+            manager = runtime.manager_for_ref(repository.ref)
+            await manager.async_uninstall(repository)
+        runtime.repositories.pop(call.data["repository"], None)
+        await runtime.save()
+
+    async def refresh_repositories(_call: ServiceCall) -> None:
+        await runtime.refresh_all()
 
     hass.services.async_register(
         DOMAIN,
@@ -120,8 +167,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
         install_repository,
         schema=INSTALL_REPOSITORY_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        "uninstall_repository",
+        uninstall_repository,
+        schema=REPOSITORY_KEY_SCHEMA,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        "remove_repository",
+        remove_repository,
+        schema=REPOSITORY_KEY_SCHEMA,
+    )
+    hass.services.async_register(DOMAIN, "refresh", refresh_repositories)
     await _async_register_frontend(hass)
     async_setup_websocket(hass)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
@@ -131,8 +192,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> bo
     if not hass.data.get(DOMAIN):
         hass.services.async_remove(DOMAIN, "add_repository")
         hass.services.async_remove(DOMAIN, "install_repository")
+        hass.services.async_remove(DOMAIN, "uninstall_repository")
+        hass.services.async_remove(DOMAIN, "remove_repository")
+        hass.services.async_remove(DOMAIN, "refresh")
         frontend.async_remove_panel(hass, DOMAIN)
-    return True
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
 def _manager_for_ref(

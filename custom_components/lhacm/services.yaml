@@ -27,3 +27,20 @@ install_repository:
       required: false
       selector:
         text:
+
+uninstall_repository:
+  fields:
+    repository:
+      required: true
+      selector:
+        text:
+
+remove_repository:
+  fields:
+    repository:
+      required: true
+      selector:
+        text:
+
+refresh:
+  fields: {}

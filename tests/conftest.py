@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import types
+from datetime import UTC, datetime
 
 
 def _install_homeassistant_stubs() -> None:
@@ -13,8 +14,12 @@ def _install_homeassistant_stubs() -> None:
     http = types.ModuleType("homeassistant.components.http")
     websocket_api = types.ModuleType("homeassistant.components.websocket_api")
     config_entries = types.ModuleType("homeassistant.config_entries")
+    const = types.ModuleType("homeassistant.const")
     core = types.ModuleType("homeassistant.core")
+    dispatcher = types.ModuleType("homeassistant.helpers.dispatcher")
     helpers = types.ModuleType("homeassistant.helpers")
+    util = types.ModuleType("homeassistant.util")
+    dt = types.ModuleType("homeassistant.util.dt")
     aiohttp_client = types.ModuleType("homeassistant.helpers.aiohttp_client")
     storage = types.ModuleType("homeassistant.helpers.storage")
 
@@ -39,6 +44,11 @@ def _install_homeassistant_stubs() -> None:
         def __init__(self, *_args, **_kwargs) -> None:
             pass
 
+    class Platform:
+        """Minimal Platform stub."""
+
+        UPDATE = "update"
+
     def passthrough_decorator(*_args, **_kwargs):
         """Return a decorator that leaves websocket handlers unchanged."""
 
@@ -48,6 +58,7 @@ def _install_homeassistant_stubs() -> None:
         return decorator
 
     config_entries.ConfigEntry = ConfigEntry
+    const.Platform = Platform
     core.HomeAssistant = HomeAssistant
     core.ServiceCall = ServiceCall
     frontend.async_register_built_in_panel = lambda *_args, **_kwargs: None
@@ -61,6 +72,8 @@ def _install_homeassistant_stubs() -> None:
     websocket_api.websocket_command = passthrough_decorator
     aiohttp_client.async_get_clientsession = lambda _hass: None
     storage.Store = Store
+    dispatcher.async_dispatcher_send = lambda *_args, **_kwargs: None
+    dt.utcnow = lambda: datetime.now(UTC)
 
     sys.modules.setdefault("homeassistant", homeassistant)
     sys.modules.setdefault("homeassistant.components", components)
@@ -68,10 +81,14 @@ def _install_homeassistant_stubs() -> None:
     sys.modules.setdefault("homeassistant.components.http", http)
     sys.modules.setdefault("homeassistant.components.websocket_api", websocket_api)
     sys.modules.setdefault("homeassistant.config_entries", config_entries)
+    sys.modules.setdefault("homeassistant.const", const)
     sys.modules.setdefault("homeassistant.core", core)
     sys.modules.setdefault("homeassistant.helpers", helpers)
     sys.modules.setdefault("homeassistant.helpers.aiohttp_client", aiohttp_client)
+    sys.modules.setdefault("homeassistant.helpers.dispatcher", dispatcher)
     sys.modules.setdefault("homeassistant.helpers.storage", storage)
+    sys.modules.setdefault("homeassistant.util", util)
+    sys.modules.setdefault("homeassistant.util.dt", dt)
 
 
 def _install_dependency_stubs() -> None:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from typing import Any
 
 from .const import ProviderType, RepositoryCategory
@@ -52,6 +51,7 @@ class SourceRepository:
     stars: int = 0
     open_issues: int = 0
     topics: list[str] = field(default_factory=list)
+    last_updated: str | None = None
 
 
 @dataclass(slots=True)
@@ -93,6 +93,10 @@ class ManagedRepository:
     downloads: int = 0
     last_updated: str | None = None
     custom: bool = True
+    installed_path: str | None = None
+    source_url: str | None = None
+    last_checked: str | None = None
+    topics: list[str] = field(default_factory=list)
 
     @property
     def key(self) -> str:
@@ -130,6 +134,10 @@ class ManagedRepository:
             downloads=int(data.get("downloads") or 0),
             last_updated=data.get("last_updated"),
             custom=bool(data.get("custom", True)),
+            installed_path=data.get("installed_path"),
+            source_url=data.get("source_url"),
+            last_checked=data.get("last_checked"),
+            topics=list(data.get("topics") or []),
         )
 
     @property
@@ -140,7 +148,7 @@ class ManagedRepository:
     @property
     def available_version(self) -> str:
         """Return the version Home Assistant should display."""
-        return self.last_version or self.installed_commit or self.default_branch or ""
+        return self.last_version or self.default_branch or ""
 
     @property
     def status(self) -> str:
@@ -156,4 +164,6 @@ class ManagedRepository:
         """Return whether the repository has a pending update."""
         if not self.installed:
             return False
+        if self.installed_version == self.default_branch:
+            return bool(self.last_updated and self.installed_commit != self.last_updated)
         return bool(self.available_version and self.available_version != self.installed_version)

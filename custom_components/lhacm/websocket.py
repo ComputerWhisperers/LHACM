@@ -20,7 +20,9 @@ def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, lhacm_repositories_list)
     websocket_api.async_register_command(hass, lhacm_repositories_add)
     websocket_api.async_register_command(hass, lhacm_repositories_remove)
+    websocket_api.async_register_command(hass, lhacm_repositories_refresh)
     websocket_api.async_register_command(hass, lhacm_repository_download)
+    websocket_api.async_register_command(hass, lhacm_repository_uninstall)
 
 
 def _runtime(hass: HomeAssistant):
@@ -109,9 +111,36 @@ async def lhacm_repositories_remove(
 ) -> None:
     """Remove a custom repository from LHACM."""
     runtime = _runtime(hass)
+    repository = runtime.repositories.get(msg["repository"])
+    if repository and repository.installed:
+        manager = runtime.manager_for_ref(repository.ref)
+        try:
+            await manager.async_uninstall(repository)
+        except LHACMError as exception:
+            connection.send_error(msg["id"], "remove_error", str(exception))
+            return
     runtime.repositories.pop(msg["repository"], None)
-    await runtime.store.async_save(runtime.repositories)
+    await runtime.save()
     connection.send_message(websocket_api.result_message(msg["id"]))
+
+
+@websocket_api.websocket_command({vol.Required("type"): "lhacm/repositories/refresh"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def lhacm_repositories_refresh(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Refresh all repositories."""
+    runtime = _runtime(hass)
+    await runtime.refresh_all()
+    connection.send_message(
+        websocket_api.result_message(
+            msg["id"],
+            [_repository_payload(repo) for repo in runtime.repositories.values()],
+        )
+    )
 
 
 @websocket_api.websocket_command(
@@ -139,9 +168,41 @@ async def lhacm_repository_download(
     try:
         repository = await manager.async_install(repository, ref=msg.get("version"))
         runtime.repositories[repository.key] = repository
-        await runtime.store.async_save(runtime.repositories)
+        await runtime.save()
     except LHACMError as exception:
         connection.send_error(msg["id"], "download_error", str(exception))
+        return
+
+    connection.send_message(websocket_api.result_message(msg["id"], _repository_payload(repository)))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): "lhacm/repository/uninstall",
+        vol.Required("repository"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def lhacm_repository_uninstall(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Uninstall a repository but keep it in LHACM."""
+    runtime = _runtime(hass)
+    repository = runtime.repositories.get(msg["repository"])
+    if repository is None:
+        connection.send_error(msg["id"], "repository_not_found", "Repository not found")
+        return
+
+    manager = runtime.manager_for_ref(repository.ref)
+    try:
+        repository = await manager.async_uninstall(repository)
+        runtime.repositories[repository.key] = repository
+        await runtime.save()
+    except LHACMError as exception:
+        connection.send_error(msg["id"], "uninstall_error", str(exception))
         return
 
     connection.send_message(websocket_api.result_message(msg["id"], _repository_payload(repository)))
@@ -175,6 +236,6 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
         "stars": repository.stars,
         "state": None,
         "status": repository.status,
-        "topics": [],
-        "source_url": f"{repository.ref.base_url}/{repository.ref.full_name}",
+        "topics": repository.topics,
+        "source_url": repository.source_url or f"{repository.ref.base_url}/{repository.ref.full_name}",
     }

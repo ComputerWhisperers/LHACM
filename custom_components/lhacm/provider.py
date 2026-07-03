@@ -108,6 +108,7 @@ class GitLabProvider(RepositoryProvider):
             stars=int(project.get("star_count") or 0),
             open_issues=int(project.get("open_issues_count") or 0),
             topics=list(project.get("topics") or project.get("tag_list") or []),
+            last_updated=project.get("last_activity_at") or project.get("updated_at"),
         )
 
     async def get_tree(self, ref: RepositoryRef, branch: str) -> list[SourceFile]:
@@ -204,6 +205,7 @@ class GiteaProvider(RepositoryProvider):
             stars=int(repo.get("stars_count") or 0),
             open_issues=int(repo.get("open_issues_count") or 0),
             topics=list(repo.get("topics") or []),
+            last_updated=repo.get("updated_at"),
         )
 
     async def get_tree(self, ref: RepositoryRef, branch: str) -> list[SourceFile]:

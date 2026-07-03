@@ -16,6 +16,7 @@ CONF_VERIFY_SSL = "verify_ssl"
 CONF_ACKNOWLEDGE_RISK = "acknowledge_risk"
 
 STORE_REPOSITORIES = "repositories"
+SIGNAL_REPOSITORIES_UPDATED = f"{DOMAIN}_repositories_updated"
 
 
 class ProviderType(StrEnum):

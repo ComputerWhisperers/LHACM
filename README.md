@@ -1,6 +1,6 @@
 # LHACM
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/computerwhisperers/LHACM/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.0.1-blue.svg)](https://github.com/computerwhisperers/LHACM/releases/tag/v1.0.1)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-custom%20integration-41BDF5.svg)](https://www.home-assistant.io/)
 [![Providers](https://img.shields.io/badge/providers-GitLab%20%7C%20Gitea-FCA121.svg)](#configuration)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](#lhacm)
@@ -19,9 +19,11 @@ Version `1.0.0` establishes the integration foundation:
 - GitLab and Gitea provider clients.
 - Repository metadata, tree, release, archive, and raw-file helpers.
 - Services to add and install custom repositories from repository URLs.
+- Install, update, uninstall, remove, and refresh lifecycle actions.
+- Native Home Assistant update entities for installed repositories.
 - Safe ZIP extraction into Home Assistant custom component paths.
 
-Full HACS parity is the target. The next major areas are repository indexes from local GitLab/Gitea systems, update entities, background queues, repair flows, and richer validation.
+Full HACS parity is the target. The next major areas are repository indexes from local GitLab/Gitea systems, background queues, repair flows, and richer validation.
 
 ## Installation
 

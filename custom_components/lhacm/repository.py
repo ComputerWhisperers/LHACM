@@ -11,6 +11,7 @@ import zipfile
 
 from aiohttp import ClientTimeout
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
 
 from .const import RepositoryCategory
 from .exceptions import RepositoryValidationError, LHACMError
@@ -30,6 +31,7 @@ class RepositoryManager:
         self,
         ref: RepositoryRef,
         category: RepositoryCategory,
+        existing: ManagedRepository | None = None,
     ) -> ManagedRepository:
         """Validate a repository and return a managed representation."""
         source = await self.provider.get_repository(ref)
@@ -48,7 +50,7 @@ class RepositoryManager:
         stable_releases = [release for release in releases if not release.prerelease]
         last_version = stable_releases[0].tag if stable_releases else None
 
-        return ManagedRepository(
+        repository = ManagedRepository(
             ref=ref,
             category=category,
             domain=domain,
@@ -58,8 +60,18 @@ class RepositoryManager:
             description=source.description,
             stars=source.stars,
             downloads=0,
-            last_updated=None,
+            last_updated=source.last_updated,
+            source_url=source.html_url or f"{ref.base_url}/{ref.full_name}",
+            topics=source.topics,
+            last_checked=dt_util.utcnow().isoformat(),
         )
+        if existing is not None:
+            repository.installed = existing.installed
+            repository.installed_version = existing.installed_version
+            repository.installed_commit = existing.installed_commit
+            repository.installed_path = existing.installed_path
+            repository.custom = existing.custom
+        return repository
 
     async def async_install(
         self,
@@ -80,6 +92,21 @@ class RepositoryManager:
         )
         repository.installed = True
         repository.installed_version = revision
+        repository.installed_commit = repository.last_updated
+        repository.installed_path = str(self._target_path(repository))
+        return repository
+
+    async def async_refresh(self, repository: ManagedRepository) -> ManagedRepository:
+        """Refresh repository metadata while preserving install state."""
+        return await self.async_validate(repository.ref, repository.category, existing=repository)
+
+    async def async_uninstall(self, repository: ManagedRepository) -> ManagedRepository:
+        """Uninstall repository files from Home Assistant."""
+        await self.hass.async_add_executor_job(self._remove_repository_files, repository)
+        repository.installed = False
+        repository.installed_version = None
+        repository.installed_commit = None
+        repository.installed_path = None
         return repository
 
     def _find_manifest(
@@ -151,6 +178,17 @@ class RepositoryManager:
             if target.exists():
                 shutil.rmtree(target)
             shutil.copytree(source, target)
+
+    def _remove_repository_files(self, repository: ManagedRepository) -> None:
+        target = self._target_path(repository)
+        config_root = pathlib.Path(self.hass.config.path()).resolve()
+        resolved = target.resolve()
+        if config_root not in resolved.parents and resolved != config_root:
+            raise RepositoryValidationError("Install path is outside the Home Assistant config path")
+        if target.is_dir():
+            shutil.rmtree(target)
+        elif target.exists():
+            target.unlink()
 
     def _target_path(self, repository: ManagedRepository) -> pathlib.Path:
         if repository.category == RepositoryCategory.INTEGRATION:

@@ -192,7 +192,16 @@ class LhacmPanel extends HTMLElement {
         }
         .actions {
           text-align: right;
-          width: 48px;
+          width: 220px;
+        }
+        .action-row {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+        }
+        .action-row button {
+          height: 32px;
+          padding: 0 10px;
         }
         .empty, .error {
           padding: 40px 24px;
@@ -301,7 +310,7 @@ class LhacmPanel extends HTMLElement {
       </style>
       <header>
         <h1>Local Home Assistant Component Manager</h1>
-        <button class="icon-button" id="menuButton" title="Menu">⋮</button>
+        <button class="icon-button" id="menuButton" title="Menu">...</button>
         ${this._menu ? `<div class="menu">
           <button id="docsButton">Documentation</button>
           <button id="sourceButton">Repository</button>
@@ -310,7 +319,7 @@ class LhacmPanel extends HTMLElement {
         </div>` : ""}
       </header>
       <div class="toolbar">
-        <button id="filtersButton">☰ Filters</button>
+        <button id="filtersButton">Filters</button>
         <input id="searchInput" placeholder="Search repositories" value="${this._escape(this._search)}">
         <select id="groupSelect" title="Group repositories">
           <option value="status" ${this._group === "status" ? "selected" : ""}>Group by Status</option>
@@ -322,7 +331,7 @@ class LhacmPanel extends HTMLElement {
           <option value="activity" ${this._sort === "activity" ? "selected" : ""}>Sort by Activity</option>
           <option value="type" ${this._sort === "type" ? "selected" : ""}>Sort by Type</option>
         </select>
-        <button class="icon-button" id="refreshButton" title="Refresh">⚙</button>
+        <button id="refreshButton" title="Refresh">Refresh</button>
       </div>
       ${this._error ? `<div class="error">${this._escape(this._error)}</div>` : this._table(groups)}
       ${this._dialog ? this._dialogTemplate() : ""}
@@ -343,10 +352,10 @@ class LhacmPanel extends HTMLElement {
       <th>Type</th>
       <th class="wide">Installed</th>
       <th class="wide">Latest</th>
-      <th class="actions"></th>
+      <th class="actions">Actions</th>
     </tr></thead><tbody>`);
     for (const [group, repos] of groups.entries()) {
-      rows.push(`<tr class="group"><td colspan="8">⌃ ${this._groupLabel(group)}</td></tr>`);
+      rows.push(`<tr class="group"><td colspan="8">^ ${this._groupLabel(group)}</td></tr>`);
       for (const repo of repos) {
         rows.push(`<tr>
           <td><div class="repo"><div class="repo-icon">${this._repoInitials(repo)}</div><div class="repo-text">
@@ -359,7 +368,7 @@ class LhacmPanel extends HTMLElement {
           <td>${this._typeLabel(repo.category)}</td>
           <td class="wide">${this._escape(repo.installed_version || "-")}</td>
           <td class="wide">${this._escape(repo.available_version || "-")}</td>
-          <td class="actions"><button class="icon-button row-menu" data-id="${this._escape(repo.id)}">⋮</button></td>
+          <td class="actions">${this._actionButtons(repo)}</td>
         </tr>`);
       }
     }
@@ -372,11 +381,11 @@ class LhacmPanel extends HTMLElement {
     const categories = this._info && this._info.categories ? this._info.categories : ["integration", "plugin", "theme", "python_script", "appdaemon", "template"];
     return `<div class="dialog-backdrop">
       <div class="dialog">
-        <header><button class="icon-button" id="closeDialog">×</button><h2>Custom repositories</h2></header>
+        <header><button class="icon-button" id="closeDialog">x</button><h2>Custom repositories</h2></header>
         <div class="dialog-body">
           ${custom.map((repo) => `<div class="custom-row">
             <div><div>${this._escape(repo.name)}</div><div class="sub">${this._escape(repo.full_name)} (${this._typeLabel(repo.category)})</div></div>
-            <button class="delete" data-remove="${this._escape(repo.id)}">■</button>
+            <button class="delete" data-remove="${this._escape(repo.id)}">Delete</button>
           </div>`).join("")}
           <div class="form">
             <input id="repoInput" placeholder="Repository" value="${this._escape(this._dialogData.repository)}">
@@ -407,7 +416,7 @@ class LhacmPanel extends HTMLElement {
     this._on("docsButton", "click", () => window.open("https://github.com/ComputerWhisperers/LHACM", "_blank"));
     this._on("sourceButton", "click", () => window.open("https://github.com/ComputerWhisperers/LHACM", "_blank"));
     this._on("aboutButton", "click", () => alert("LHACM manages Home Assistant custom repositories from GitLab and Gitea."));
-    this._on("refreshButton", "click", () => this._load());
+    this._on("refreshButton", "click", () => this._refreshRepositories());
     this._on("searchInput", "input", (ev) => {
       this._search = ev.target.value;
       this._render();
@@ -420,8 +429,10 @@ class LhacmPanel extends HTMLElement {
       this._sort = ev.target.value;
       this._render();
     });
-    this.shadowRoot.querySelectorAll(".row-menu").forEach((button) => {
-      button.addEventListener("click", () => this._download(button.dataset.id));
+    this.shadowRoot.querySelectorAll("[data-action]").forEach((button) => {
+      button.addEventListener("click", () =>
+        this._repositoryAction(button.dataset.action, button.dataset.id)
+      );
     });
     this._on("closeDialog", "click", () => this._closeDialog());
     this._on("cancelDialog", "click", () => this._closeDialog());
@@ -472,6 +483,31 @@ class LhacmPanel extends HTMLElement {
     });
   }
 
+  _actionButtons(repo) {
+    const id = this._escape(repo.id);
+    const buttons = [];
+    if (!repo.installed) {
+      buttons.push(`<button data-action="install" data-id="${id}">Install</button>`);
+    } else if (repo.pending_upgrade) {
+      buttons.push(`<button data-action="install" data-id="${id}">Update</button>`);
+      buttons.push(`<button data-action="uninstall" data-id="${id}">Uninstall</button>`);
+    } else {
+      buttons.push(`<button data-action="uninstall" data-id="${id}">Uninstall</button>`);
+    }
+    buttons.push(`<button data-action="remove" data-id="${id}">Delete</button>`);
+    return `<div class="action-row">${buttons.join("")}</div>`;
+  }
+
+  _repositoryAction(action, id) {
+    if (action === "install") {
+      this._download(id);
+    } else if (action === "uninstall") {
+      this._uninstall(id);
+    } else if (action === "remove") {
+      this._removeRepository(id);
+    }
+  }
+
   _download(id) {
     const repo = this._repositories.find((item) => item.id === id);
     if (!repo) return;
@@ -485,6 +521,26 @@ class LhacmPanel extends HTMLElement {
       this._render();
     });
   }
+
+  _uninstall(id) {
+    this._send({ type: "lhacm/repository/uninstall", repository: id }).then(() => {
+      return this._send({ type: "lhacm/repositories/list" });
+    }).then((repositories) => {
+      this._repositories = repositories;
+      this._render();
+    });
+  }
+
+  _refreshRepositories() {
+    this._send({ type: "lhacm/repositories/refresh" }).then((repositories) => {
+      this._repositories = repositories;
+      this._render();
+    }).catch((err) => {
+      this._error = err.message || String(err);
+      this._render();
+    });
+  }
+
 
   _closeDialog() {
     this._dialog = false;
