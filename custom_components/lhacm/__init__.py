@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import logging
+from pathlib import Path
 
+from homeassistant.components import frontend
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import aiohttp_client
@@ -21,6 +24,7 @@ from .provider import create_provider
 from .repository import RepositoryManager
 from .repository_url import parse_repository_url, provider_config_for_repository
 from .store import RepositoryStore
+from .websocket import async_setup as async_setup_websocket
 
 LOGGER = logging.getLogger(__name__)
 
@@ -33,7 +37,21 @@ class LHACMRuntime:
 
     store: RepositoryStore
     session: object
+    hass: HomeAssistant
     repositories: dict[str, ManagedRepository] = field(default_factory=dict)
+
+    def manager_for_ref(self, ref: RepositoryRef) -> RepositoryManager:
+        """Create a repository manager for a repository reference."""
+        provider = create_provider(provider_config_for_repository(ref), self.session)
+        return RepositoryManager(self.hass, provider)
+
+    async def validate_repository(
+        self,
+        ref: RepositoryRef,
+        category: RepositoryCategory,
+    ) -> ManagedRepository:
+        """Validate a repository, probing unknown local hosts as GitLab then Gitea."""
+        return await _validate_repository(self.hass, self, ref, category)
 
 
 ADD_REPOSITORY_SCHEMA = vol.Schema(
@@ -60,6 +78,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
     runtime = LHACMRuntime(
         store=store,
         session=session,
+        hass=hass,
         repositories=await store.async_load(),
     )
     entry.runtime_data = runtime
@@ -101,6 +120,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
         install_repository,
         schema=INSTALL_REPOSITORY_SCHEMA,
     )
+    await _async_register_frontend(hass)
+    async_setup_websocket(hass)
     return True
 
 
@@ -110,6 +131,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> bo
     if not hass.data.get(DOMAIN):
         hass.services.async_remove(DOMAIN, "add_repository")
         hass.services.async_remove(DOMAIN, "install_repository")
+        frontend.async_remove_panel(hass, DOMAIN)
     return True
 
 
@@ -120,6 +142,35 @@ def _manager_for_ref(
 ) -> RepositoryManager:
     provider = create_provider(provider_config_for_repository(ref), runtime.session)
     return RepositoryManager(hass, provider)
+
+
+async def _async_register_frontend(hass: HomeAssistant) -> None:
+    panel_path = Path(__file__).parent / "frontend"
+    await hass.http.async_register_static_paths(
+        [
+            StaticPathConfig(
+                f"/{DOMAIN}_frontend",
+                str(panel_path),
+                cache_headers=False,
+            )
+        ]
+    )
+    frontend.async_register_built_in_panel(
+        hass,
+        component_name="custom",
+        sidebar_title="LHACM",
+        sidebar_icon="mdi:store-cog",
+        frontend_url_path=DOMAIN,
+        config={
+            "_panel_custom": {
+                "name": "lhacm-panel",
+                "module_url": f"/{DOMAIN}_frontend/lhacm-panel.js",
+                "embed_iframe": False,
+                "trust_external": False,
+            }
+        },
+        require_admin=True,
+    )
 
 
 async def _validate_repository(

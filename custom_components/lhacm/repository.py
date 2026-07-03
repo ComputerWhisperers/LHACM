@@ -55,6 +55,10 @@ class RepositoryManager:
             default_branch=source.default_branch,
             last_version=last_version,
             name=manifest.get("name") if isinstance(manifest, dict) else source.ref.name,
+            description=source.description,
+            stars=source.stars,
+            downloads=0,
+            last_updated=None,
         )
 
     async def async_install(
@@ -75,7 +79,7 @@ class RepositoryManager:
             repository,
         )
         repository.installed = True
-        repository.installed_version = revision if repository.last_version == revision else None
+        repository.installed_version = revision
         return repository
 
     def _find_manifest(
@@ -191,4 +195,3 @@ class RepositoryManager:
             if destination not in member_path.parents and member_path != destination:
                 raise RepositoryValidationError("Archive contains an unsafe path")
         zip_file.extractall(destination)
-

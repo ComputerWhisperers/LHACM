@@ -14,12 +14,14 @@ LHACM is intended to follow the HACS user model while replacing the GitHub-only 
 Version `1.0.0` establishes the integration foundation:
 
 - HACS-style Home Assistant config flow with no repository host URL in setup.
+- Home Assistant sidebar panel with a HACS-style repository dashboard.
+- Custom repositories dialog for adding GitLab and Gitea repository URLs by type.
 - GitLab and Gitea provider clients.
 - Repository metadata, tree, release, archive, and raw-file helpers.
 - Services to add and install custom repositories from repository URLs.
 - Safe ZIP extraction into Home Assistant custom component paths.
 
-Full HACS parity is the target. The next major areas are frontend/websocket parity, update entities, repository indexes, background queues, repair flows, and richer validation.
+Full HACS parity is the target. The next major areas are repository indexes from local GitLab/Gitea systems, update entities, background queues, repair flows, and richer validation.
 
 ## Installation
 

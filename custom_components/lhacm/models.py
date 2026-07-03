@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from typing import Any
 
 from .const import ProviderType, RepositoryCategory
@@ -87,6 +88,11 @@ class ManagedRepository:
     default_branch: str | None = None
     last_version: str | None = None
     name: str | None = None
+    description: str | None = None
+    stars: int = 0
+    downloads: int = 0
+    last_updated: str | None = None
+    custom: bool = True
 
     @property
     def key(self) -> str:
@@ -119,4 +125,35 @@ class ManagedRepository:
             default_branch=data.get("default_branch"),
             last_version=data.get("last_version"),
             name=data.get("name"),
+            description=data.get("description"),
+            stars=int(data.get("stars") or 0),
+            downloads=int(data.get("downloads") or 0),
+            last_updated=data.get("last_updated"),
+            custom=bool(data.get("custom", True)),
         )
+
+    @property
+    def display_name(self) -> str:
+        """Return a user-facing repository name."""
+        return self.name or self.domain or self.ref.name
+
+    @property
+    def available_version(self) -> str:
+        """Return the version Home Assistant should display."""
+        return self.last_version or self.installed_commit or self.default_branch or ""
+
+    @property
+    def status(self) -> str:
+        """Return HACS-like repository status."""
+        if self.installed and self.pending_update:
+            return "pending-upgrade"
+        if self.installed:
+            return "installed"
+        return "default"
+
+    @property
+    def pending_update(self) -> bool:
+        """Return whether the repository has a pending update."""
+        if not self.installed:
+            return False
+        return bool(self.available_version and self.available_version != self.installed_version)

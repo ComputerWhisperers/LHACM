@@ -1,0 +1,527 @@
+class LhacmPanel extends HTMLElement {
+  set hass(hass) {
+    this._hass = hass;
+    if (!this._loaded) {
+      this._loaded = true;
+      this._load();
+    }
+  }
+
+  connectedCallback() {
+    this.attachShadow({ mode: "open" });
+    this._repositories = [];
+    this._search = "";
+    this._group = "status";
+    this._sort = "name";
+    this._dialog = false;
+    this._dialogData = { repository: "", category: "integration" };
+    this._render();
+  }
+
+  _load() {
+    Promise.all([
+      this._send({ type: "lhacm/info" }),
+      this._send({ type: "lhacm/repositories/list" }),
+    ]).then((results) => {
+      this._info = results[0];
+      this._repositories = results[1];
+      this._render();
+    }).catch((err) => {
+      this._error = err.message || String(err);
+      this._render();
+    });
+  }
+
+  _send(message) {
+    return this._hass.connection.sendMessagePromise(message);
+  }
+
+  _filteredRepositories() {
+    const search = this._search.trim().toLowerCase();
+    return (this._repositories || []).slice()
+      .filter((repo) => {
+        if (!search) return true;
+        return [
+          repo.name,
+          repo.full_name,
+          repo.description,
+          repo.category,
+          repo.status,
+          repo.domain,
+        ].concat(repo.topics || [])
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(search);
+      })
+      .sort((a, b) => {
+        if (this._sort === "stars") return (b.stars || 0) - (a.stars || 0);
+        if (this._sort === "activity") {
+          return String(b.last_updated || "").localeCompare(String(a.last_updated || ""));
+        }
+        if (this._sort === "type") return a.category.localeCompare(b.category);
+        return a.name.localeCompare(b.name);
+      });
+  }
+
+  _groupedRepositories() {
+    const groups = new Map();
+    for (const repo of this._filteredRepositories()) {
+      const key = this._group === "type" ? repo.category : repo.installed ? "downloaded" : "available";
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(repo);
+    }
+    return groups;
+  }
+
+  _render() {
+    if (!this.shadowRoot) return;
+    const groups = this._groupedRepositories();
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          color: var(--primary-text-color, #202124);
+          background: var(--primary-background-color, #fff);
+          min-height: 100vh;
+          font-family: var(--paper-font-body1_-_font-family, Roboto, Arial, sans-serif);
+        }
+        header {
+          height: 64px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 24px;
+          border-bottom: 1px solid var(--divider-color, #e0e0e0);
+          box-sizing: border-box;
+        }
+        h1 {
+          font-size: 20px;
+          font-weight: 400;
+          margin: 0;
+        }
+        .toolbar {
+          display: grid;
+          grid-template-columns: auto minmax(220px, 1fr) auto auto auto;
+          gap: 12px;
+          align-items: center;
+          padding: 12px 16px;
+          border-bottom: 1px solid var(--divider-color, #e0e0e0);
+        }
+        button, select, input {
+          height: 36px;
+          border: 1px solid var(--divider-color, #d0d0d0);
+          border-radius: 6px;
+          background: var(--card-background-color, #fff);
+          color: var(--primary-text-color, #202124);
+          font: inherit;
+        }
+        button {
+          padding: 0 12px;
+          cursor: pointer;
+        }
+        .icon-button {
+          width: 40px;
+          padding: 0;
+          font-size: 22px;
+          line-height: 1;
+        }
+        input {
+          padding: 0 14px;
+          min-width: 0;
+        }
+        table {
+          width: 100%;
+          border-collapse: collapse;
+          table-layout: fixed;
+          font-size: 14px;
+        }
+        th, td {
+          border-bottom: 1px solid var(--divider-color, #e6e6e6);
+          padding: 12px 10px;
+          text-align: left;
+          vertical-align: middle;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        th {
+          height: 48px;
+          font-weight: 500;
+          color: var(--secondary-text-color, #5f6368);
+        }
+        .group td {
+          background: var(--secondary-background-color, #f7f7f7);
+          color: var(--primary-text-color, #202124);
+          font-weight: 500;
+          height: 48px;
+        }
+        .repo {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          min-width: 0;
+        }
+        .repo-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 4px;
+          flex: 0 0 auto;
+          background: #132238;
+          display: grid;
+          place-items: center;
+          color: #41bdf5;
+          font-size: 12px;
+          font-weight: 700;
+        }
+        .repo-text {
+          min-width: 0;
+        }
+        .name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .description {
+          color: var(--secondary-text-color, #5f6368);
+          font-size: 13px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          margin-top: 2px;
+        }
+        .actions {
+          text-align: right;
+          width: 48px;
+        }
+        .empty, .error {
+          padding: 40px 24px;
+          color: var(--secondary-text-color, #5f6368);
+        }
+        .menu {
+          position: absolute;
+          top: 54px;
+          right: 12px;
+          width: 240px;
+          background: var(--card-background-color, #fff);
+          border: 1px solid var(--divider-color, #ddd);
+          box-shadow: 0 4px 12px rgba(0,0,0,.18);
+          z-index: 2;
+        }
+        .menu button {
+          width: 100%;
+          border: 0;
+          border-radius: 0;
+          text-align: left;
+          height: 50px;
+          padding: 0 18px;
+        }
+        .dialog-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0,0,0,.38);
+          display: grid;
+          place-items: center;
+          z-index: 5;
+        }
+        .dialog {
+          width: min(520px, calc(100vw - 32px));
+          max-height: min(680px, calc(100vh - 32px));
+          background: var(--card-background-color, #fff);
+          border-radius: 24px;
+          box-shadow: 0 10px 28px rgba(0,0,0,.25);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+        .dialog header {
+          height: 72px;
+          border: 0;
+          justify-content: flex-start;
+          gap: 12px;
+        }
+        .dialog h2 {
+          font-size: 22px;
+          font-weight: 400;
+          margin: 0;
+        }
+        .dialog-body {
+          padding: 0 22px 16px;
+          overflow: auto;
+        }
+        .custom-row {
+          display: grid;
+          grid-template-columns: 1fr auto;
+          gap: 12px;
+          align-items: center;
+          padding: 10px 0;
+        }
+        .custom-row .sub {
+          color: var(--secondary-text-color, #5f6368);
+          font-size: 13px;
+          margin-top: 4px;
+        }
+        .delete {
+          color: #d93025;
+          border: 0;
+          font-size: 22px;
+        }
+        .form {
+          display: grid;
+          gap: 14px;
+          margin-top: 14px;
+        }
+        .form input, .form select {
+          width: 100%;
+          box-sizing: border-box;
+          height: 48px;
+        }
+        .dialog-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          padding: 8px 22px 18px;
+        }
+        .primary {
+          color: var(--primary-color, #03a9f4);
+          border: 0;
+          font-weight: 500;
+        }
+        @media (max-width: 720px) {
+          .toolbar {
+            grid-template-columns: 1fr auto;
+          }
+          .toolbar button:first-child, .toolbar select {
+            display: none;
+          }
+          .wide {
+            display: none;
+          }
+        }
+      </style>
+      <header>
+        <h1>Local Home Assistant Component Manager</h1>
+        <button class="icon-button" id="menuButton" title="Menu">⋮</button>
+        ${this._menu ? `<div class="menu">
+          <button id="docsButton">Documentation</button>
+          <button id="sourceButton">Repository</button>
+          <button id="customButton">Custom repositories</button>
+          <button id="aboutButton">About LHACM</button>
+        </div>` : ""}
+      </header>
+      <div class="toolbar">
+        <button id="filtersButton">☰ Filters</button>
+        <input id="searchInput" placeholder="Search repositories" value="${this._escape(this._search)}">
+        <select id="groupSelect" title="Group repositories">
+          <option value="status" ${this._group === "status" ? "selected" : ""}>Group by Status</option>
+          <option value="type" ${this._group === "type" ? "selected" : ""}>Group by Type</option>
+        </select>
+        <select id="sortSelect" title="Sort repositories">
+          <option value="name" ${this._sort === "name" ? "selected" : ""}>Sort by Name</option>
+          <option value="stars" ${this._sort === "stars" ? "selected" : ""}>Sort by Stars</option>
+          <option value="activity" ${this._sort === "activity" ? "selected" : ""}>Sort by Activity</option>
+          <option value="type" ${this._sort === "type" ? "selected" : ""}>Sort by Type</option>
+        </select>
+        <button class="icon-button" id="refreshButton" title="Refresh">⚙</button>
+      </div>
+      ${this._error ? `<div class="error">${this._escape(this._error)}</div>` : this._table(groups)}
+      ${this._dialog ? this._dialogTemplate() : ""}
+    `;
+    this._bind();
+  }
+
+  _table(groups) {
+    if (!groups.size) {
+      return `<div class="empty">Use the menu to add GitLab or Gitea custom repositories.</div>`;
+    }
+    const rows = [];
+    rows.push(`<table><thead><tr>
+      <th>Repository name</th>
+      <th class="wide">Downloads</th>
+      <th class="wide">Stars</th>
+      <th class="wide">Activity</th>
+      <th>Type</th>
+      <th class="wide">Installed</th>
+      <th class="wide">Latest</th>
+      <th class="actions"></th>
+    </tr></thead><tbody>`);
+    for (const [group, repos] of groups.entries()) {
+      rows.push(`<tr class="group"><td colspan="8">⌃ ${this._groupLabel(group)}</td></tr>`);
+      for (const repo of repos) {
+        rows.push(`<tr>
+          <td><div class="repo"><div class="repo-icon">${this._repoInitials(repo)}</div><div class="repo-text">
+            <div class="name">${this._escape(repo.name)}</div>
+            <div class="description">${this._escape(repo.description || repo.full_name)}</div>
+          </div></div></td>
+          <td class="wide">${repo.downloads || "-"}</td>
+          <td class="wide">${repo.stars || 0}</td>
+          <td class="wide">${this._escape(repo.last_updated || "-")}</td>
+          <td>${this._typeLabel(repo.category)}</td>
+          <td class="wide">${this._escape(repo.installed_version || "-")}</td>
+          <td class="wide">${this._escape(repo.available_version || "-")}</td>
+          <td class="actions"><button class="icon-button row-menu" data-id="${this._escape(repo.id)}">⋮</button></td>
+        </tr>`);
+      }
+    }
+    rows.push("</tbody></table>");
+    return rows.join("");
+  }
+
+  _dialogTemplate() {
+    const custom = (this._repositories || []).filter((repo) => repo.custom);
+    const categories = this._info && this._info.categories ? this._info.categories : ["integration", "plugin", "theme", "python_script", "appdaemon", "template"];
+    return `<div class="dialog-backdrop">
+      <div class="dialog">
+        <header><button class="icon-button" id="closeDialog">×</button><h2>Custom repositories</h2></header>
+        <div class="dialog-body">
+          ${custom.map((repo) => `<div class="custom-row">
+            <div><div>${this._escape(repo.name)}</div><div class="sub">${this._escape(repo.full_name)} (${this._typeLabel(repo.category)})</div></div>
+            <button class="delete" data-remove="${this._escape(repo.id)}">■</button>
+          </div>`).join("")}
+          <div class="form">
+            <input id="repoInput" placeholder="Repository" value="${this._escape(this._dialogData.repository)}">
+            <select id="categoryInput">
+              ${categories.map((category) => `<option value="${category}" ${this._dialogData.category === category ? "selected" : ""}>${this._typeLabel(category)}</option>`).join("")}
+            </select>
+            ${this._dialogError ? `<div class="error">${this._escape(this._dialogError)}</div>` : ""}
+          </div>
+        </div>
+        <div class="dialog-actions">
+          <button class="primary" id="cancelDialog">CANCEL</button>
+          <button class="primary" id="addRepository" ${!this._dialogData.repository ? "disabled" : ""}>ADD</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  _bind() {
+    this._on("menuButton", "click", () => {
+      this._menu = !this._menu;
+      this._render();
+    });
+    this._on("customButton", "click", () => {
+      this._menu = false;
+      this._dialog = true;
+      this._render();
+    });
+    this._on("docsButton", "click", () => window.open("https://github.com/ComputerWhisperers/LHACM", "_blank"));
+    this._on("sourceButton", "click", () => window.open("https://github.com/ComputerWhisperers/LHACM", "_blank"));
+    this._on("aboutButton", "click", () => alert("LHACM manages Home Assistant custom repositories from GitLab and Gitea."));
+    this._on("refreshButton", "click", () => this._load());
+    this._on("searchInput", "input", (ev) => {
+      this._search = ev.target.value;
+      this._render();
+    });
+    this._on("groupSelect", "change", (ev) => {
+      this._group = ev.target.value;
+      this._render();
+    });
+    this._on("sortSelect", "change", (ev) => {
+      this._sort = ev.target.value;
+      this._render();
+    });
+    this.shadowRoot.querySelectorAll(".row-menu").forEach((button) => {
+      button.addEventListener("click", () => this._download(button.dataset.id));
+    });
+    this._on("closeDialog", "click", () => this._closeDialog());
+    this._on("cancelDialog", "click", () => this._closeDialog());
+    this._on("repoInput", "input", (ev) => {
+      this._dialogData.repository = ev.target.value;
+      this._render();
+    });
+    this._on("categoryInput", "change", (ev) => {
+      this._dialogData.category = ev.target.value;
+    });
+    this._on("addRepository", "click", () => this._addRepository());
+    this.shadowRoot.querySelectorAll("[data-remove]").forEach((button) => {
+      button.addEventListener("click", () => this._removeRepository(button.dataset.remove));
+    });
+  }
+
+  _on(id, eventName, handler) {
+    const element = this.shadowRoot.getElementById(id);
+    if (element) {
+      element.addEventListener(eventName, handler);
+    }
+  }
+
+  _addRepository() {
+    this._dialogError = "";
+    this._send({
+        type: "lhacm/repositories/add",
+        repository: this._dialogData.repository,
+        category: this._dialogData.category,
+      }).then(() => {
+      this._dialogData.repository = "";
+      return this._send({ type: "lhacm/repositories/list" });
+    }).then((repositories) => {
+      this._repositories = repositories;
+      this._render();
+    }).catch((err) => {
+      this._dialogError = err.message || String(err);
+      this._render();
+    });
+  }
+
+  _removeRepository(id) {
+    this._send({ type: "lhacm/repositories/remove", repository: id }).then(() => {
+      return this._send({ type: "lhacm/repositories/list" });
+    }).then((repositories) => {
+      this._repositories = repositories;
+      this._render();
+    });
+  }
+
+  _download(id) {
+    const repo = this._repositories.find((item) => item.id === id);
+    if (!repo) return;
+    const message = repo.installed
+      ? { type: "lhacm/repository/download", repository: id, version: repo.available_version || undefined }
+      : { type: "lhacm/repository/download", repository: id };
+    this._send(message).then(() => {
+      return this._send({ type: "lhacm/repositories/list" });
+    }).then((repositories) => {
+      this._repositories = repositories;
+      this._render();
+    });
+  }
+
+  _closeDialog() {
+    this._dialog = false;
+    this._dialogError = "";
+    this._render();
+  }
+
+  _groupLabel(group) {
+    if (group === "downloaded") return "Downloaded";
+    if (group === "available") return "Available for download";
+    return this._typeLabel(group);
+  }
+
+  _typeLabel(type) {
+    return {
+      integration: "Integration",
+      plugin: "Dashboard",
+      theme: "Theme",
+      python_script: "Python Script",
+      appdaemon: "AppDaemon",
+      template: "Template",
+    }[type] || type;
+  }
+
+  _repoInitials(repo) {
+    return this._escape((repo.name || repo.full_name || "LH").slice(0, 2).toUpperCase());
+  }
+
+  _escape(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;",
+    })[char]);
+  }
+}
+
+customElements.define("lhacm-panel", LhacmPanel);

@@ -4,7 +4,7 @@
   "after_dependencies": ["python_script"],
   "codeowners": ["@computerwhisperers"],
   "config_flow": true,
-  "dependencies": ["http", "persistent_notification", "repairs"],
+  "dependencies": ["frontend", "http", "persistent_notification", "repairs", "websocket_api"],
   "documentation": "https://github.com/computerwhisperers/LHACM",
   "integration_type": "service",
   "iot_class": "local_polling",
@@ -12,4 +12,3 @@
   "requirements": [],
   "version": "1.0.0"
 }
-

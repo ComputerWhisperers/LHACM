@@ -8,6 +8,10 @@ import types
 
 def _install_homeassistant_stubs() -> None:
     homeassistant = types.ModuleType("homeassistant")
+    components = types.ModuleType("homeassistant.components")
+    frontend = types.ModuleType("homeassistant.components.frontend")
+    http = types.ModuleType("homeassistant.components.http")
+    websocket_api = types.ModuleType("homeassistant.components.websocket_api")
     config_entries = types.ModuleType("homeassistant.config_entries")
     core = types.ModuleType("homeassistant.core")
     helpers = types.ModuleType("homeassistant.helpers")
@@ -29,13 +33,40 @@ def _install_homeassistant_stubs() -> None:
         def __init__(self, *_args, **_kwargs) -> None:
             pass
 
+    class StaticPathConfig:
+        """Minimal StaticPathConfig stub."""
+
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+    def passthrough_decorator(*_args, **_kwargs):
+        """Return a decorator that leaves websocket handlers unchanged."""
+
+        def decorator(func):
+            return func
+
+        return decorator
+
     config_entries.ConfigEntry = ConfigEntry
     core.HomeAssistant = HomeAssistant
     core.ServiceCall = ServiceCall
+    frontend.async_register_built_in_panel = lambda *_args, **_kwargs: None
+    frontend.async_remove_panel = lambda *_args, **_kwargs: None
+    http.StaticPathConfig = StaticPathConfig
+    websocket_api.ActiveConnection = object
+    websocket_api.async_register_command = lambda *_args, **_kwargs: None
+    websocket_api.async_response = lambda func: func
+    websocket_api.require_admin = lambda func: func
+    websocket_api.result_message = lambda msg_id, result=None: {"id": msg_id, "result": result}
+    websocket_api.websocket_command = passthrough_decorator
     aiohttp_client.async_get_clientsession = lambda _hass: None
     storage.Store = Store
 
     sys.modules.setdefault("homeassistant", homeassistant)
+    sys.modules.setdefault("homeassistant.components", components)
+    sys.modules.setdefault("homeassistant.components.frontend", frontend)
+    sys.modules.setdefault("homeassistant.components.http", http)
+    sys.modules.setdefault("homeassistant.components.websocket_api", websocket_api)
     sys.modules.setdefault("homeassistant.config_entries", config_entries)
     sys.modules.setdefault("homeassistant.core", core)
     sys.modules.setdefault("homeassistant.helpers", helpers)
