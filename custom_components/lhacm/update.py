@@ -64,6 +64,36 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
         return f"{repository.display_name} update" if repository else "LHACM repository update"
 
     @property
+    def device_info(self) -> dict:
+        """Return device information for the repository."""
+        repository = self.repository
+        if repository is None:
+            return {"identifiers": {(DOMAIN, self._repository_key)}, "name": "LHACM repository"}
+        return {
+            "identifiers": {(DOMAIN, repository.key)},
+            "name": repository.display_name,
+            "manufacturer": repository.ref.provider.value,
+            "model": repository.category.value,
+            "configuration_url": repository.source_url,
+            "sw_version": repository.installed_version,
+            "via_device": (DOMAIN, "lhacm"),
+        }
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return repository attributes."""
+        repository = self.repository
+        if repository is None:
+            return {}
+        return {
+            "repository": repository.ref.full_name,
+            "provider": repository.ref.provider.value,
+            "category": repository.category.value,
+            "source_url": repository.source_url,
+            "installed_path": repository.installed_path,
+        }
+
+    @property
     def installed_version(self) -> str | None:
         """Return installed version."""
         repository = self.repository

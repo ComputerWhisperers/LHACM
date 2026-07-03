@@ -61,6 +61,7 @@ def _install_homeassistant_stubs() -> None:
     const.Platform = Platform
     core.HomeAssistant = HomeAssistant
     core.ServiceCall = ServiceCall
+    core.callback = lambda func: func
     frontend.async_register_built_in_panel = lambda *_args, **_kwargs: None
     frontend.async_remove_panel = lambda *_args, **_kwargs: None
     http.StaticPathConfig = StaticPathConfig

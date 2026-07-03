@@ -16,6 +16,10 @@ from homeassistant.helpers import aiohttp_client
 import voluptuous as vol
 
 from .const import (
+    CONF_SIDEPANEL_ICON,
+    CONF_SIDEPANEL_TITLE,
+    DEFAULT_SIDEPANEL_ICON,
+    DEFAULT_SIDEPANEL_TITLE,
     DOMAIN,
     ProviderType,
     RepositoryCategory,
@@ -111,6 +115,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
     )
     entry.runtime_data = runtime
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
+    entry.async_on_unload(entry.add_update_listener(_async_options_updated))
 
     async def add_repository(call: ServiceCall) -> None:
         ref = parse_repository_url(call.data["repository"])
@@ -180,7 +185,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
         schema=REPOSITORY_KEY_SCHEMA,
     )
     hass.services.async_register(DOMAIN, "refresh", refresh_repositories)
-    await _async_register_frontend(hass)
+    await _async_register_frontend(hass, entry)
     async_setup_websocket(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -199,6 +204,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> bo
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 
+async def _async_options_updated(hass: HomeAssistant, entry: LHACMConfigEntry) -> None:
+    """Reload LHACM when options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
+
+
 def _manager_for_ref(
     hass: HomeAssistant,
     runtime: LHACMRuntime,
@@ -208,7 +218,7 @@ def _manager_for_ref(
     return RepositoryManager(hass, provider)
 
 
-async def _async_register_frontend(hass: HomeAssistant) -> None:
+async def _async_register_frontend(hass: HomeAssistant, entry: LHACMConfigEntry) -> None:
     panel_path = Path(__file__).parent / "frontend"
     await hass.http.async_register_static_paths(
         [
@@ -222,8 +232,8 @@ async def _async_register_frontend(hass: HomeAssistant) -> None:
     frontend.async_register_built_in_panel(
         hass,
         component_name="custom",
-        sidebar_title="LHACM",
-        sidebar_icon="mdi:store-cog",
+        sidebar_title=entry.options.get(CONF_SIDEPANEL_TITLE, DEFAULT_SIDEPANEL_TITLE),
+        sidebar_icon=entry.options.get(CONF_SIDEPANEL_ICON, DEFAULT_SIDEPANEL_ICON),
         frontend_url_path=DOMAIN,
         config={
             "_panel_custom": {

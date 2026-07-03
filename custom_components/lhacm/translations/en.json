@@ -16,5 +16,17 @@
     "abort": {
       "already_configured": "This provider is already configured."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "data": {
+          "sidepanel_title": "Side panel title",
+          "sidepanel_icon": "Side panel icon",
+          "appdaemon_discovery": "Enable AppDaemon apps discovery and tracking"
+        }
+      }
+    }
   }
 }

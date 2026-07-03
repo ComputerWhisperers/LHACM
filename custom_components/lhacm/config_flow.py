@@ -9,6 +9,11 @@ import voluptuous as vol
 
 from .const import (
     CONF_ACKNOWLEDGE_RISK,
+    CONF_APPDAEMON_DISCOVERY,
+    CONF_SIDEPANEL_ICON,
+    CONF_SIDEPANEL_TITLE,
+    DEFAULT_SIDEPANEL_ICON,
+    DEFAULT_SIDEPANEL_TITLE,
     DOMAIN,
 )
 
@@ -35,6 +40,11 @@ class LHACMConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title="LHACM",
                     data={},
+                    options={
+                        CONF_SIDEPANEL_TITLE: DEFAULT_SIDEPANEL_TITLE,
+                        CONF_SIDEPANEL_ICON: DEFAULT_SIDEPANEL_ICON,
+                        CONF_APPDAEMON_DISCOVERY: False,
+                    },
                 )
 
         return self.async_show_form(
@@ -45,4 +55,46 @@ class LHACMConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+    @staticmethod
+    def async_get_options_flow(config_entry):
+        """Return the options flow."""
+        return LHACMOptionsFlow(config_entry)
+
+
+class LHACMOptionsFlow(config_entries.OptionsFlow):
+    """Handle LHACM options."""
+
+    def __init__(self, config_entry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> config_entries.ConfigFlowResult:
+        """Manage LHACM options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        options = self.config_entry.options
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_SIDEPANEL_TITLE,
+                        default=options.get(CONF_SIDEPANEL_TITLE, DEFAULT_SIDEPANEL_TITLE),
+                    ): str,
+                    vol.Optional(
+                        CONF_SIDEPANEL_ICON,
+                        default=options.get(CONF_SIDEPANEL_ICON, DEFAULT_SIDEPANEL_ICON),
+                    ): str,
+                    vol.Optional(
+                        CONF_APPDAEMON_DISCOVERY,
+                        default=options.get(CONF_APPDAEMON_DISCOVERY, False),
+                    ): bool,
+                }
+            ),
         )

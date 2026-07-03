@@ -7,13 +7,15 @@ from enum import StrEnum
 DOMAIN = "lhacm"
 NAME = "Local Home Assistant Component Manager"
 NAME_SHORT = "LHACM"
-VERSION = "1.0.0"
+VERSION = "1.0.3"
 
-CONF_PROVIDER = "provider"
-CONF_BASE_URL = "base_url"
-CONF_TOKEN = "token"
-CONF_VERIFY_SSL = "verify_ssl"
 CONF_ACKNOWLEDGE_RISK = "acknowledge_risk"
+CONF_SIDEPANEL_TITLE = "sidepanel_title"
+CONF_SIDEPANEL_ICON = "sidepanel_icon"
+CONF_APPDAEMON_DISCOVERY = "appdaemon_discovery"
+
+DEFAULT_SIDEPANEL_TITLE = "LHACM"
+DEFAULT_SIDEPANEL_ICON = "mdi:store-cog"
 
 STORE_REPOSITORIES = "repositories"
 SIGNAL_REPOSITORIES_UPDATED = f"{DOMAIN}_repositories_updated"
