@@ -56,7 +56,6 @@ class LhacmPanel extends HTMLElement {
           .includes(search);
       })
       .sort((a, b) => {
-        if (this._sort === "stars") return (b.stars || 0) - (a.stars || 0);
         if (this._sort === "activity") {
           return String(b.last_updated || "").localeCompare(String(a.last_updated || ""));
         }
@@ -450,7 +449,6 @@ class LhacmPanel extends HTMLElement {
         </select>
         <select id="sortSelect" title="Sort repositories">
           <option value="name" ${this._sort === "name" ? "selected" : ""}>Sort by Name</option>
-          <option value="stars" ${this._sort === "stars" ? "selected" : ""}>Sort by Stars</option>
           <option value="activity" ${this._sort === "activity" ? "selected" : ""}>Sort by Activity</option>
           <option value="type" ${this._sort === "type" ? "selected" : ""}>Sort by Type</option>
         </select>
@@ -471,8 +469,6 @@ class LhacmPanel extends HTMLElement {
     const rows = [];
     rows.push(`<table><thead><tr>
       <th>Repository name</th>
-      <th class="wide">Downloads</th>
-      <th class="wide">Stars</th>
       <th class="wide">Activity</th>
       <th>Type</th>
       <th class="wide">Installed</th>
@@ -480,16 +476,14 @@ class LhacmPanel extends HTMLElement {
       <th class="actions"></th>
     </tr></thead><tbody>`);
     for (const [group, repos] of groups.entries()) {
-      rows.push(`<tr class="group"><td colspan="8">^ ${this._groupLabel(group)}</td></tr>`);
+      rows.push(`<tr class="group"><td colspan="6">^ ${this._groupLabel(group)}</td></tr>`);
       for (const repo of repos) {
         rows.push(`<tr>
           <td><div class="repo">${this._repoIcon(repo)}<div class="repo-text">
             <div class="name">${this._escape(repo.name)}</div>
             <div class="description">${this._escape(repo.description || repo.full_name)}</div>
           </div></div></td>
-          <td class="wide">${repo.downloads || "-"}</td>
-          <td class="wide">${repo.stars || 0}</td>
-          <td class="wide">${this._escape(repo.last_updated || "-")}</td>
+          <td class="wide">${this._escape(this._relativeTime(repo.last_updated))}</td>
           <td>${this._typeLabel(repo.category)}</td>
           <td class="wide">${this._escape(repo.installed_version || "-")}</td>
           <td class="wide">${this._escape(repo.available_version || "-")}</td>
@@ -830,8 +824,6 @@ class LhacmPanel extends HTMLElement {
           <span class="chip">${this._escape(repo.available_version || "No version")}</span>
           <span class="chip">${this._escape(repo.provider || "")}</span>
           <span class="chip">${this._typeLabel(repo.category)}</span>
-          <span class="chip">${this._escape(String(repo.stars || 0))} stars</span>
-          <span class="chip">${this._escape(String(repo.downloads || 0))} downloads</span>
         </div>
         <div class="markdown">${this._markdownToHtml(repo.readme || "")}</div>
       </main>
@@ -898,6 +890,35 @@ class LhacmPanel extends HTMLElement {
       return "";
     }
     return `/api/brands/${encodeURIComponent(repo.domain)}/icon.png`;
+  }
+
+  _relativeTime(value) {
+    if (!value) return "-";
+    const then = new Date(value);
+    if (Number.isNaN(then.getTime())) return "-";
+
+    const seconds = Math.max(0, Math.floor((Date.now() - then.getTime()) / 1000));
+    const minutes = Math.floor(seconds / 60);
+    const hours = Math.floor(minutes / 60);
+    const days = Math.floor(hours / 24);
+
+    if (seconds < 60) return "just now";
+    if (minutes < 60) return minutes === 1 ? "1 minute ago" : `${minutes} minutes ago`;
+    if (hours < 24) return hours === 1 ? "1 hour ago" : `${hours} hours ago`;
+    if (days === 1) return "yesterday";
+    if (days < 7) return `${days} days ago`;
+    if (days < 14) return "last week";
+    if (days < 31) {
+      const weeks = Math.floor(days / 7);
+      return `${weeks} weeks ago`;
+    }
+    if (days < 60) return "last month";
+    if (days < 365) {
+      const months = Math.floor(days / 30);
+      return `${months} months ago`;
+    }
+    if (days < 730) return "last year";
+    return `${Math.floor(days / 365)} years ago`;
   }
 
   _escape(value) {
