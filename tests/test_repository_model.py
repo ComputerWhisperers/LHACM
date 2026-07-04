@@ -38,7 +38,22 @@ def test_branch_pending_update() -> None:
     )
 
     assert repository.pending_update is True
-    assert repository.available_version == "new"
+    assert repository.available_version == ""
+
+
+def test_manifest_version_is_available_version() -> None:
+    """Manifest versions are shown instead of provider activity timestamps."""
+    repository = _repo(
+        installed=True,
+        installed_version="1.0.9",
+        installed_commit="old",
+        default_branch="main",
+        manifest_version="1.0.10",
+        last_updated="2026-07-02T00:34:35.599Z",
+    )
+
+    assert repository.available_version == "1.0.10"
+    assert repository.pending_update is True
 
 
 def test_brand_icon_url_round_trip() -> None:

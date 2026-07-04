@@ -7,7 +7,7 @@ from enum import StrEnum
 DOMAIN = "lhacm"
 NAME = "Local Home Assistant Component Manager"
 NAME_SHORT = "LHACM"
-VERSION = "1.0.9"
+VERSION = "1.0.10"
 
 CONF_ACKNOWLEDGE_RISK = "acknowledge_risk"
 CONF_SIDEPANEL_TITLE = "sidepanel_title"

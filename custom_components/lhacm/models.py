@@ -87,6 +87,7 @@ class ManagedRepository:
     installed: bool = False
     default_branch: str | None = None
     last_version: str | None = None
+    manifest_version: str | None = None
     name: str | None = None
     description: str | None = None
     stars: int = 0
@@ -129,6 +130,7 @@ class ManagedRepository:
             installed=bool(data.get("installed", False)),
             default_branch=data.get("default_branch"),
             last_version=data.get("last_version"),
+            manifest_version=data.get("manifest_version"),
             name=data.get("name"),
             description=data.get("description"),
             stars=int(data.get("stars") or 0),
@@ -150,7 +152,7 @@ class ManagedRepository:
     @property
     def available_version(self) -> str:
         """Return the version Home Assistant should display."""
-        return self.last_version or self.last_updated or ""
+        return self.last_version or self.manifest_version or ""
 
     @property
     def status(self) -> str:
@@ -166,6 +168,6 @@ class ManagedRepository:
         """Return whether the repository has a pending update."""
         if not self.installed:
             return False
-        if not self.last_version:
+        if not self.last_version and not self.manifest_version:
             return bool(self.last_updated and self.installed_commit != self.last_updated)
         return bool(self.available_version and self.available_version != self.installed_version)

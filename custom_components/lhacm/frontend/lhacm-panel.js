@@ -9,16 +9,6 @@ class LhacmPanel extends HTMLElement {
 
   connectedCallback() {
     this.attachShadow({ mode: "open" });
-    this._boundOutsideClick = (ev) => this._closeMenusFromOutside(ev);
-    this._boundEscapeKey = (ev) => {
-      if (ev.key === "Escape" && (this._menu || this._rowMenu)) {
-        this._menu = false;
-        this._rowMenu = undefined;
-        this._render();
-      }
-    };
-    document.addEventListener("click", this._boundOutsideClick);
-    document.addEventListener("keydown", this._boundEscapeKey);
     this._repositories = [];
     this._search = "";
     this._group = "status";
@@ -27,11 +17,6 @@ class LhacmPanel extends HTMLElement {
     this._dialogData = { repository: "", category: "integration" };
     this._detailRepository = undefined;
     this._render();
-  }
-
-  disconnectedCallback() {
-    document.removeEventListener("click", this._boundOutsideClick);
-    document.removeEventListener("keydown", this._boundEscapeKey);
   }
 
   _load() {
@@ -645,27 +630,8 @@ class LhacmPanel extends HTMLElement {
     this._render();
   }
 
-  _rowMenuDismissLayer() {
+  _menuDismissLayer() {
     return `<div id="menuDismissLayer" class="menu-dismiss-layer"></div>`;
-  }
-
-  _closeMenusFromOutside(ev) {
-    if (!this._menu && !this._rowMenu) return;
-    const path = ev.composedPath ? ev.composedPath() : [];
-    const menu = this.shadowRoot.querySelector(".menu");
-    const rowMenu = this.shadowRoot.querySelector(".row-menu-popover");
-    const menuButton = this.shadowRoot.getElementById("menuButton");
-    if (
-      path.includes(menu) ||
-      path.includes(rowMenu) ||
-      path.includes(menuButton) ||
-      path.some((item) => item && item.classList && item.classList.contains("row-menu"))
-    ) {
-      return;
-    }
-    this._menu = false;
-    this._rowMenu = undefined;
-    this._render();
   }
 
   _rowMenuTemplate() {

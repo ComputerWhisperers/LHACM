@@ -49,6 +49,7 @@ class RepositoryManager:
         releases = [release for release in await self.provider.get_releases(ref) if not release.draft]
         stable_releases = [release for release in releases if not release.prerelease]
         last_version = stable_releases[0].tag if stable_releases else None
+        manifest_version = self._manifest_version(manifest)
         brand_icon = self._find_brand_icon(tree, category, source.default_branch, domain)
 
         repository = ManagedRepository(
@@ -57,6 +58,7 @@ class RepositoryManager:
             domain=domain,
             default_branch=source.default_branch,
             last_version=last_version,
+            manifest_version=manifest_version,
             name=manifest.get("name") if isinstance(manifest, dict) else source.ref.name,
             description=source.description,
             stars=source.stars,
@@ -69,11 +71,33 @@ class RepositoryManager:
         )
         if existing is not None:
             repository.installed = existing.installed
-            repository.installed_version = existing.installed_version
+            repository.installed_version = self._preserve_installed_version(
+                existing,
+                repository.available_version,
+            )
             repository.installed_commit = existing.installed_commit
             repository.installed_path = existing.installed_path
             repository.custom = existing.custom
         return repository
+
+    def _manifest_version(self, manifest: dict[str, Any]) -> str | None:
+        """Return the repository manifest version if one exists."""
+        version = manifest.get("version") if isinstance(manifest, dict) else None
+        if version in (None, ""):
+            return None
+        return str(version)
+
+    def _preserve_installed_version(
+        self,
+        existing: ManagedRepository,
+        available_version: str,
+    ) -> str | None:
+        """Keep an installed version unless it is an old activity timestamp fallback."""
+        if not existing.installed_version:
+            return existing.installed_version
+        if available_version and existing.installed_version == existing.last_updated:
+            return available_version
+        return existing.installed_version
 
     def _find_brand_icon(
         self,
@@ -114,7 +138,7 @@ class RepositoryManager:
     ) -> ManagedRepository:
         """Install a managed repository from its archive."""
         revision = ref or repository.last_version or repository.default_branch
-        if ref and not repository.last_version and ref == repository.last_updated:
+        if ref and not repository.last_version and ref == repository.available_version:
             revision = repository.default_branch
         if not revision:
             raise LHACMError("No branch, tag, or release is available to install")
@@ -126,7 +150,7 @@ class RepositoryManager:
             repository,
         )
         repository.installed = True
-        repository.installed_version = ref or repository.last_version or repository.last_updated or revision
+        repository.installed_version = ref or repository.last_version or repository.manifest_version or revision
         repository.installed_commit = repository.last_updated
         repository.installed_path = str(self._target_path(repository))
         return repository
