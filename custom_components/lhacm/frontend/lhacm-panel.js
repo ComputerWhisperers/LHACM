@@ -248,6 +248,12 @@ class LhacmPanel extends HTMLElement {
           z-index: 4;
           padding: 8px 0;
         }
+        .menu-dismiss-layer {
+          position: fixed;
+          inset: 0;
+          z-index: 3;
+          background: transparent;
+        }
         .row-menu-popover button {
           width: 100%;
           height: 48px;
@@ -440,7 +446,7 @@ class LhacmPanel extends HTMLElement {
         <button id="refreshButton" title="Refresh">Refresh</button>
       </div>
       ${this._error ? `<div class="error">${this._escape(this._error)}</div>` : this._table(groups)}
-      ${this._rowMenu ? this._rowMenuTemplate() : ""}
+      ${this._rowMenu ? `${this._rowMenuDismissLayer()}${this._rowMenuTemplate()}` : ""}
       ${this._dialog ? this._dialogTemplate() : ""}
     `;
     this._bind();
@@ -544,6 +550,10 @@ class LhacmPanel extends HTMLElement {
         this._repositoryAction(button.dataset.rowAction, button.dataset.id);
       });
     });
+    this._on("menuDismissLayer", "click", () => {
+      this._rowMenu = undefined;
+      this._render();
+    });
     this._on("closeDialog", "click", () => this._closeDialog());
     this._on("cancelDialog", "click", () => this._closeDialog());
     this._on("repoInput", "input", (ev) => {
@@ -594,6 +604,7 @@ class LhacmPanel extends HTMLElement {
   }
 
   _openRowMenu(id, ev) {
+    ev.stopPropagation();
     const rect = ev.target.getBoundingClientRect();
     this._rowMenu = {
       id,
@@ -601,6 +612,10 @@ class LhacmPanel extends HTMLElement {
       left: Math.max(8, Math.min(rect.right - 230, window.innerWidth - 238)),
     };
     this._render();
+  }
+
+  _rowMenuDismissLayer() {
+    return `<div id="menuDismissLayer" class="menu-dismiss-layer"></div>`;
   }
 
   _rowMenuTemplate() {

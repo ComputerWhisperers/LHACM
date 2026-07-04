@@ -31,13 +31,14 @@ def test_branch_pending_update() -> None:
     """Branch repositories compare provider activity markers."""
     repository = _repo(
         installed=True,
-        installed_version="main",
+        installed_version="old",
         installed_commit="old",
         default_branch="main",
         last_updated="new",
     )
 
     assert repository.pending_update is True
+    assert repository.available_version == "new"
 
 
 def test_brand_icon_url_round_trip() -> None:

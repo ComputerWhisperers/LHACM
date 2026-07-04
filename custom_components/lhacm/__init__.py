@@ -8,6 +8,7 @@ from pathlib import Path
 
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.persistent_notification import async_create as async_create_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -84,6 +85,22 @@ class LHACMRuntime:
             except LHACMError as exception:
                 LOGGER.warning("Could not refresh %s: %s", repository.ref.full_name, exception)
 
+    async def async_restart_required(
+        self,
+        repository: ManagedRepository,
+        action: str,
+    ) -> None:
+        """Create a Home Assistant notification for repository file changes."""
+        async_create_notification(
+            self.hass,
+            (
+                f"LHACM {action} {repository.display_name}. "
+                "Restart Home Assistant to load the custom component changes."
+            ),
+            title="Restart required",
+            notification_id=f"{DOMAIN}_restart_required_{repository.key}",
+        )
+
 
 ADD_REPOSITORY_SCHEMA = vol.Schema(
     {
@@ -140,6 +157,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
         repository = await manager.async_install(repository, ref=call.data.get("ref"))
         runtime.repositories[repository.key] = repository
         await runtime.save()
+        await runtime.async_restart_required(repository, "installed")
         LOGGER.info("Installed repository %s", ref.full_name)
 
     async def uninstall_repository(call: ServiceCall) -> None:
@@ -148,13 +166,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
         repository = await manager.async_uninstall(repository)
         runtime.repositories[repository.key] = repository
         await runtime.save()
+        await runtime.async_restart_required(repository, "uninstalled")
         LOGGER.info("Uninstalled repository %s", repository.ref.full_name)
 
     async def remove_repository(call: ServiceCall) -> None:
         repository = runtime.repositories.get(call.data["repository"])
         if repository and repository.installed:
             manager = runtime.manager_for_ref(repository.ref)
-            await manager.async_uninstall(repository)
+            repository = await manager.async_uninstall(repository)
+            await runtime.async_restart_required(repository, "removed")
         runtime.repositories.pop(call.data["repository"], None)
         await runtime.save()
 

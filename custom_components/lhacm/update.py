@@ -138,3 +138,4 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
         repository = await manager.async_install(repository, ref=version)
         self._runtime.repositories[repository.key] = repository
         await self._runtime.save()
+        await self._runtime.async_restart_required(repository, "updated")

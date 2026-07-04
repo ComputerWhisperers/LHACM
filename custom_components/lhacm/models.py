@@ -150,7 +150,7 @@ class ManagedRepository:
     @property
     def available_version(self) -> str:
         """Return the version Home Assistant should display."""
-        return self.last_version or self.default_branch or ""
+        return self.last_version or self.last_updated or ""
 
     @property
     def status(self) -> str:
@@ -166,6 +166,6 @@ class ManagedRepository:
         """Return whether the repository has a pending update."""
         if not self.installed:
             return False
-        if self.installed_version == self.default_branch:
+        if not self.last_version:
             return bool(self.last_updated and self.installed_commit != self.last_updated)
         return bool(self.available_version and self.available_version != self.installed_version)

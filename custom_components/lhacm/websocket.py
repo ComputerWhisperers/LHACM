@@ -117,7 +117,8 @@ async def lhacm_repositories_remove(
     if repository and repository.installed:
         manager = runtime.manager_for_ref(repository.ref)
         try:
-            await manager.async_uninstall(repository)
+            repository = await manager.async_uninstall(repository)
+            await runtime.async_restart_required(repository, "removed")
         except LHACMError as exception:
             connection.send_error(msg["id"], "remove_error", str(exception))
             return
@@ -224,6 +225,7 @@ async def lhacm_repository_download(
         repository = await manager.async_install(repository, ref=msg.get("version"))
         runtime.repositories[repository.key] = repository
         await runtime.save()
+        await runtime.async_restart_required(repository, "installed")
     except LHACMError as exception:
         connection.send_error(msg["id"], "download_error", str(exception))
         return
@@ -256,6 +258,7 @@ async def lhacm_repository_uninstall(
         repository = await manager.async_uninstall(repository)
         runtime.repositories[repository.key] = repository
         await runtime.save()
+        await runtime.async_restart_required(repository, "uninstalled")
     except LHACMError as exception:
         connection.send_error(msg["id"], "uninstall_error", str(exception))
         return
