@@ -99,6 +99,7 @@ class LHACMRuntime:
             f"restart_required_{issue_hash}",
             breaks_in_ha_version=None,
             is_fixable=False,
+            issue_domain=repository.domain or DOMAIN,
             severity=ir.IssueSeverity.WARNING,
             translation_key="restart_required",
             translation_placeholders={

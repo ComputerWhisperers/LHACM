@@ -115,7 +115,14 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
 
     @property
     def entity_picture(self) -> str | None:
-        """Return no entity picture."""
+        """Return repository artwork for Home Assistant update cards."""
+        repository = self.repository
+        if not repository:
+            return None
+        if repository.brand_icon_url:
+            return repository.brand_icon_url
+        if repository.category.value == "integration" and repository.domain:
+            return f"/api/brands/{repository.domain}/icon.png"
         return None
 
     async def async_update(self) -> None:

@@ -31,8 +31,8 @@
   },
   "issues": {
     "restart_required": {
-      "title": "Restart Home Assistant",
-      "description": "LHACM {action} {name}. Restart Home Assistant to load the custom component changes."
+      "title": "Restart required for {name}",
+      "description": "{name} was {action} by LHACM. Restart Home Assistant to finish loading {name}."
     }
   }
 }
