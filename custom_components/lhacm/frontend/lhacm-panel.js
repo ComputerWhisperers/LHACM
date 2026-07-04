@@ -233,6 +233,9 @@ class LhacmPanel extends HTMLElement {
           text-align: left;
           padding: 0 18px;
           background: transparent;
+          display: flex;
+          align-items: center;
+          gap: 18px;
         }
         .row-menu-popover .divider {
           height: 1px;
@@ -244,6 +247,27 @@ class LhacmPanel extends HTMLElement {
         }
         .row-menu-popover .danger {
           color: #d93025;
+        }
+        .row-menu {
+          border: 0;
+          background: transparent;
+          border-radius: 50%;
+          color: var(--secondary-text-color, #5f6368);
+        }
+        .row-menu:hover {
+          background: var(--secondary-background-color, #f1f3f4);
+        }
+        .menu-icon {
+          width: 18px;
+          height: 18px;
+          flex: 0 0 18px;
+          color: currentColor;
+        }
+        .menu-icon svg {
+          width: 18px;
+          height: 18px;
+          display: block;
+          fill: currentColor;
         }
         .dialog-backdrop {
           position: fixed;
@@ -532,14 +556,27 @@ class LhacmPanel extends HTMLElement {
       ? repo.pending_upgrade ? "Update" : "Redownload"
       : "Download";
     return `<div class="row-menu-popover" style="top:${this._rowMenu.top}px;left:${this._rowMenu.left}px">
-      <button data-row-action="details" data-id="${id}">Show details</button>
-      <button data-row-action="repository" data-id="${id}">Repository</button>
-      <button data-row-action="refresh" data-id="${id}">Update information</button>
-      <button data-row-action="${primaryAction}" data-id="${id}">${primaryLabel}</button>
+      <button data-row-action="details" data-id="${id}">${this._menuIcon("info")}<span>Show details</span></button>
+      <button data-row-action="repository" data-id="${id}">${this._menuIcon("github")}<span>Repository</span></button>
+      <button data-row-action="refresh" data-id="${id}">${this._menuIcon("refresh")}<span>Update information</span></button>
+      <button data-row-action="${primaryAction}" data-id="${id}">${this._menuIcon(primaryAction === "install" ? "download" : "redownload")}<span>${primaryLabel}</span></button>
       <div class="divider"></div>
-      ${repo.installed ? `<button data-row-action="uninstall" data-id="${id}" class="warning">Uninstall</button>` : ""}
-      <button data-row-action="remove" data-id="${id}" class="danger">Remove</button>
+      ${repo.installed ? `<button data-row-action="uninstall" data-id="${id}" class="warning">${this._menuIcon("warning")}<span>Uninstall</span></button>` : ""}
+      <button data-row-action="remove" data-id="${id}" class="danger">${this._menuIcon("remove")}<span>Remove</span></button>
     </div>`;
+  }
+
+  _menuIcon(name) {
+    const paths = {
+      info: "M11 17H13V11H11M12 2A10 10 0 1 0 12 22A10 10 0 0 0 12 2M12 20A8 8 0 1 1 12 4A8 8 0 0 1 12 20M11 9H13V7H11",
+      github: "M12 2A10 10 0 0 0 2 12C2 16.42 4.87 20.17 8.84 21.5C9.34 21.58 9.5 21.27 9.5 21V19.23C6.73 19.83 6.14 17.89 6.14 17.89C5.68 16.73 5.03 16.42 5.03 16.42C4.12 15.8 5.1 15.82 5.1 15.82C6.1 15.9 6.63 16.85 6.63 16.85C7.5 18.36 8.97 17.92 9.54 17.67C9.63 17.03 9.89 16.59 10.17 16.34C7.95 16.09 5.62 15.23 5.62 11.42C5.62 10.33 6 9.44 6.65 8.75C6.55 8.5 6.2 7.5 6.75 6.12C6.75 6.12 7.59 5.85 9.5 7.15C10.29 6.93 11.15 6.82 12 6.82C12.85 6.82 13.71 6.93 14.5 7.15C16.41 5.85 17.25 6.12 17.25 6.12C17.8 7.5 17.45 8.5 17.35 8.75C18 9.44 18.38 10.33 18.38 11.42C18.38 15.24 16.04 16.09 13.81 16.34C14.17 16.65 14.5 17.26 14.5 18.2V21C14.5 21.27 14.66 21.59 15.17 21.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2Z",
+      refresh: "M17.65 6.35A7.95 7.95 0 0 0 12 4A8 8 0 1 0 19.75 10H17.65A6 6 0 1 1 16.24 7.76L13 11H20V4",
+      download: "M5 20H19V18H5M19 9H15V3H9V9H5L12 16",
+      redownload: "M12 4V1L8 5L12 9V6A6 6 0 1 1 6 12H4A8 8 0 1 0 12 4M11 10V15H8L12 19L16 15H13V10",
+      warning: "M1 21H23L12 2M13 18H11V16H13M13 14H11V10H13",
+      remove: "M18.3 5.71L12 12L5.7 5.71L4.29 7.12L10.59 13.41L4.29 19.71L5.7 21.12L12 14.83L18.3 21.12L19.71 19.71L13.41 13.41L19.71 7.12",
+    };
+    return `<span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${paths[name] || paths.info}"></path></svg></span>`;
   }
 
   _repositoryAction(action, id) {
