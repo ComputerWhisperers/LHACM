@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import hashlib
 import logging
 from pathlib import Path
 
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
-from homeassistant.components.persistent_notification import async_create as async_create_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers import aiohttp_client
+from homeassistant.helpers import issue_registry as ir
+from homeassistant.helpers.dispatcher import async_dispatcher_send
 import voluptuous as vol
 
 from .const import (
@@ -90,15 +91,20 @@ class LHACMRuntime:
         repository: ManagedRepository,
         action: str,
     ) -> None:
-        """Create a Home Assistant notification for repository file changes."""
-        async_create_notification(
+        """Create a Home Assistant repair issue for repository file changes."""
+        issue_hash = hashlib.sha1(repository.key.encode()).hexdigest()[:12]
+        ir.async_create_issue(
             self.hass,
-            (
-                f"LHACM {action} {repository.display_name}. "
-                "Restart Home Assistant to load the custom component changes."
-            ),
-            title="Restart required",
-            notification_id=f"{DOMAIN}_restart_required_{repository.key}",
+            DOMAIN,
+            f"restart_required_{issue_hash}",
+            breaks_in_ha_version=None,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="restart_required",
+            translation_placeholders={
+                "action": action,
+                "name": repository.display_name,
+            },
         )
 
 

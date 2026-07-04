@@ -9,6 +9,16 @@ class LhacmPanel extends HTMLElement {
 
   connectedCallback() {
     this.attachShadow({ mode: "open" });
+    this._boundOutsideClick = (ev) => this._closeMenusFromOutside(ev);
+    this._boundEscapeKey = (ev) => {
+      if (ev.key === "Escape" && (this._menu || this._rowMenu)) {
+        this._menu = false;
+        this._rowMenu = undefined;
+        this._render();
+      }
+    };
+    document.addEventListener("click", this._boundOutsideClick);
+    document.addEventListener("keydown", this._boundEscapeKey);
     this._repositories = [];
     this._search = "";
     this._group = "status";
@@ -17,6 +27,11 @@ class LhacmPanel extends HTMLElement {
     this._dialogData = { repository: "", category: "integration" };
     this._detailRepository = undefined;
     this._render();
+  }
+
+  disconnectedCallback() {
+    document.removeEventListener("click", this._boundOutsideClick);
+    document.removeEventListener("keydown", this._boundEscapeKey);
   }
 
   _load() {
@@ -135,6 +150,9 @@ class LhacmPanel extends HTMLElement {
           padding: 0;
           font-size: 22px;
           line-height: 1;
+          border: 0;
+          background: transparent;
+          border-radius: 50%;
         }
         input {
           padding: 0 14px;
@@ -229,7 +247,8 @@ class LhacmPanel extends HTMLElement {
           background: var(--card-background-color, #fff);
           border: 1px solid var(--divider-color, #ddd);
           box-shadow: 0 4px 12px rgba(0,0,0,.18);
-          z-index: 2;
+          z-index: 4;
+          padding: 8px 0;
         }
         .menu button {
           width: 100%;
@@ -238,6 +257,10 @@ class LhacmPanel extends HTMLElement {
           text-align: left;
           height: 50px;
           padding: 0 18px;
+          background: transparent;
+          display: flex;
+          align-items: center;
+          gap: 18px;
         }
         .row-menu-popover {
           position: fixed;
@@ -384,8 +407,11 @@ class LhacmPanel extends HTMLElement {
         .trash-button {
           width: 40px;
           padding: 0;
-          font-size: 28px;
-          line-height: 1;
+          border: 0;
+          background: transparent;
+          color: #d93025;
+          display: grid;
+          place-items: center;
         }
         .form {
           display: grid;
@@ -424,10 +450,10 @@ class LhacmPanel extends HTMLElement {
         <div class="topbar-title"><h1>Local Home Assistant Component Manager</h1></div>
         <button class="icon-button" id="menuButton" title="Menu">&#8942;</button>
         ${this._menu ? `<div class="menu">
-          <button id="docsButton">Documentation</button>
-          <button id="sourceButton">Repository</button>
-          <button id="customButton">Custom repositories</button>
-          <button id="aboutButton">About LHACM</button>
+          <button id="docsButton">${this._menuIcon("document")}<span>Documentation</span></button>
+          <button id="sourceButton">${this._menuIcon("github")}<span>Repository</span></button>
+          <button id="customButton">${this._menuIcon("custom")}<span>Custom repositories</span></button>
+          <button id="aboutButton">${this._menuIcon("info")}<span>About LHACM</span></button>
         </div>` : ""}
       </header>
       <div class="toolbar">
@@ -446,7 +472,8 @@ class LhacmPanel extends HTMLElement {
         <button id="refreshButton" title="Refresh">Refresh</button>
       </div>
       ${this._error ? `<div class="error">${this._escape(this._error)}</div>` : this._table(groups)}
-      ${this._rowMenu ? `${this._rowMenuDismissLayer()}${this._rowMenuTemplate()}` : ""}
+      ${this._menu || this._rowMenu ? this._menuDismissLayer() : ""}
+      ${this._rowMenu ? this._rowMenuTemplate() : ""}
       ${this._dialog ? this._dialogTemplate() : ""}
     `;
     this._bind();
@@ -491,14 +518,14 @@ class LhacmPanel extends HTMLElement {
 
   _dialogTemplate() {
     const custom = (this._repositories || []).filter((repo) => repo.custom);
-    const categories = this._info && this._info.categories ? this._info.categories : ["integration", "plugin", "theme", "python_script", "appdaemon", "template"];
+    const categories = ["integration", "plugin", "theme"];
     return `<div class="dialog-backdrop">
       <div class="dialog">
         <header><button class="icon-button" id="closeDialog">x</button><h2>Custom repositories</h2></header>
         <div class="dialog-body">
           ${custom.map((repo) => `<div class="custom-row">
             <div><div>${this._escape(repo.name)}</div><div class="sub">${this._escape(repo.full_name)} (${this._typeLabel(repo.category)})</div></div>
-            <button class="delete trash-button" data-remove="${this._escape(repo.id)}" title="Remove repository" aria-label="Remove repository">&#128465;</button>
+            <button class="delete trash-button" data-remove="${this._escape(repo.id)}" title="Remove repository" aria-label="Remove repository">${this._menuIcon("trash")}</button>
           </div>`).join("")}
           <div class="form">
             <input id="repoInput" placeholder="Repository" value="${this._escape(this._dialogData.repository)}">
@@ -517,8 +544,10 @@ class LhacmPanel extends HTMLElement {
   }
 
   _bind() {
-    this._on("menuButton", "click", () => {
+    this._on("menuButton", "click", (ev) => {
+      ev.stopPropagation();
       this._menu = !this._menu;
+      this._rowMenu = undefined;
       this._render();
     });
     this._on("customButton", "click", () => {
@@ -551,6 +580,7 @@ class LhacmPanel extends HTMLElement {
       });
     });
     this._on("menuDismissLayer", "click", () => {
+      this._menu = false;
       this._rowMenu = undefined;
       this._render();
     });
@@ -606,6 +636,7 @@ class LhacmPanel extends HTMLElement {
   _openRowMenu(id, ev) {
     ev.stopPropagation();
     const rect = ev.target.getBoundingClientRect();
+    this._menu = false;
     this._rowMenu = {
       id,
       top: Math.min(rect.bottom + 6, window.innerHeight - 330),
@@ -616,6 +647,25 @@ class LhacmPanel extends HTMLElement {
 
   _rowMenuDismissLayer() {
     return `<div id="menuDismissLayer" class="menu-dismiss-layer"></div>`;
+  }
+
+  _closeMenusFromOutside(ev) {
+    if (!this._menu && !this._rowMenu) return;
+    const path = ev.composedPath ? ev.composedPath() : [];
+    const menu = this.shadowRoot.querySelector(".menu");
+    const rowMenu = this.shadowRoot.querySelector(".row-menu-popover");
+    const menuButton = this.shadowRoot.getElementById("menuButton");
+    if (
+      path.includes(menu) ||
+      path.includes(rowMenu) ||
+      path.includes(menuButton) ||
+      path.some((item) => item && item.classList && item.classList.contains("row-menu"))
+    ) {
+      return;
+    }
+    this._menu = false;
+    this._rowMenu = undefined;
+    this._render();
   }
 
   _rowMenuTemplate() {
@@ -640,11 +690,14 @@ class LhacmPanel extends HTMLElement {
   _menuIcon(name) {
     const paths = {
       info: "M11 17H13V11H11M12 2A10 10 0 1 0 12 22A10 10 0 0 0 12 2M12 20A8 8 0 1 1 12 4A8 8 0 0 1 12 20M11 9H13V7H11",
+      document: "M14 2H6A2 2 0 0 0 4 4V20A2 2 0 0 0 6 22H18A2 2 0 0 0 20 20V8L14 2M13 9V3.5L18.5 9M8 13H16V15H8M8 17H16V19H8",
       github: "M12 2A10 10 0 0 0 2 12C2 16.42 4.87 20.17 8.84 21.5C9.34 21.58 9.5 21.27 9.5 21V19.23C6.73 19.83 6.14 17.89 6.14 17.89C5.68 16.73 5.03 16.42 5.03 16.42C4.12 15.8 5.1 15.82 5.1 15.82C6.1 15.9 6.63 16.85 6.63 16.85C7.5 18.36 8.97 17.92 9.54 17.67C9.63 17.03 9.89 16.59 10.17 16.34C7.95 16.09 5.62 15.23 5.62 11.42C5.62 10.33 6 9.44 6.65 8.75C6.55 8.5 6.2 7.5 6.75 6.12C6.75 6.12 7.59 5.85 9.5 7.15C10.29 6.93 11.15 6.82 12 6.82C12.85 6.82 13.71 6.93 14.5 7.15C16.41 5.85 17.25 6.12 17.25 6.12C17.8 7.5 17.45 8.5 17.35 8.75C18 9.44 18.38 10.33 18.38 11.42C18.38 15.24 16.04 16.09 13.81 16.34C14.17 16.65 14.5 17.26 14.5 18.2V21C14.5 21.27 14.66 21.59 15.17 21.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2Z",
+      custom: "M3 13H11V3H3M5 5H9V11H5M13 21H21V11H13M15 13H19V19H15M13 3V9H21V3M19 7H15V5H19",
       refresh: "M17.65 6.35A7.95 7.95 0 0 0 12 4A8 8 0 1 0 19.75 10H17.65A6 6 0 1 1 16.24 7.76L13 11H20V4",
       download: "M5 20H19V18H5M19 9H15V3H9V9H5L12 16",
       redownload: "M12 4V1L8 5L12 9V6A6 6 0 1 1 6 12H4A8 8 0 1 0 12 4M11 10V15H8L12 19L16 15H13V10",
       warning: "M1 21H23L12 2M13 18H11V16H13M13 14H11V10H13",
+      trash: "M9 3V4H4V6H5V19A2 2 0 0 0 7 21H17A2 2 0 0 0 19 19V6H20V4H15V3M7 6H17V19H7M9 8V17H11V8M13 8V17H15V8",
       remove: "M18.3 5.71L12 12L5.7 5.71L4.29 7.12L10.59 13.41L4.29 19.71L5.7 21.12L12 14.83L18.3 21.12L19.71 19.71L13.41 13.41L19.71 7.12",
     };
     return `<span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="${paths[name] || paths.info}"></path></svg></span>`;

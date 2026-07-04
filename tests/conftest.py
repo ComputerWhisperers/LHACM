@@ -12,13 +12,13 @@ def _install_homeassistant_stubs() -> None:
     components = types.ModuleType("homeassistant.components")
     frontend = types.ModuleType("homeassistant.components.frontend")
     http = types.ModuleType("homeassistant.components.http")
-    persistent_notification = types.ModuleType("homeassistant.components.persistent_notification")
     websocket_api = types.ModuleType("homeassistant.components.websocket_api")
     config_entries = types.ModuleType("homeassistant.config_entries")
     const = types.ModuleType("homeassistant.const")
     core = types.ModuleType("homeassistant.core")
     dispatcher = types.ModuleType("homeassistant.helpers.dispatcher")
     helpers = types.ModuleType("homeassistant.helpers")
+    issue_registry = types.ModuleType("homeassistant.helpers.issue_registry")
     util = types.ModuleType("homeassistant.util")
     dt = types.ModuleType("homeassistant.util.dt")
     aiohttp_client = types.ModuleType("homeassistant.helpers.aiohttp_client")
@@ -66,7 +66,9 @@ def _install_homeassistant_stubs() -> None:
     frontend.async_register_built_in_panel = lambda *_args, **_kwargs: None
     frontend.async_remove_panel = lambda *_args, **_kwargs: None
     http.StaticPathConfig = StaticPathConfig
-    persistent_notification.async_create = lambda *_args, **_kwargs: None
+    issue_registry.IssueSeverity = types.SimpleNamespace(WARNING="warning")
+    issue_registry.async_create_issue = lambda *_args, **_kwargs: None
+    helpers.issue_registry = issue_registry
     websocket_api.ActiveConnection = object
     websocket_api.async_register_command = lambda *_args, **_kwargs: None
     websocket_api.async_response = lambda func: func
@@ -82,10 +84,6 @@ def _install_homeassistant_stubs() -> None:
     sys.modules.setdefault("homeassistant.components", components)
     sys.modules.setdefault("homeassistant.components.frontend", frontend)
     sys.modules.setdefault("homeassistant.components.http", http)
-    sys.modules.setdefault(
-        "homeassistant.components.persistent_notification",
-        persistent_notification,
-    )
     sys.modules.setdefault("homeassistant.components.websocket_api", websocket_api)
     sys.modules.setdefault("homeassistant.config_entries", config_entries)
     sys.modules.setdefault("homeassistant.const", const)
@@ -93,6 +91,7 @@ def _install_homeassistant_stubs() -> None:
     sys.modules.setdefault("homeassistant.helpers", helpers)
     sys.modules.setdefault("homeassistant.helpers.aiohttp_client", aiohttp_client)
     sys.modules.setdefault("homeassistant.helpers.dispatcher", dispatcher)
+    sys.modules.setdefault("homeassistant.helpers.issue_registry", issue_registry)
     sys.modules.setdefault("homeassistant.helpers.storage", storage)
     sys.modules.setdefault("homeassistant.util", util)
     sys.modules.setdefault("homeassistant.util.dt", dt)
