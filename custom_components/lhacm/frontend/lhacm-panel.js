@@ -173,6 +173,19 @@ class LhacmPanel extends HTMLElement {
           color: #41bdf5;
           font-size: 12px;
           font-weight: 700;
+          overflow: hidden;
+        }
+        .repo-icon img {
+          width: 32px;
+          height: 32px;
+          object-fit: contain;
+          display: block;
+        }
+        .repo-icon-fallback {
+          width: 32px;
+          height: 32px;
+          display: grid;
+          place-items: center;
         }
         .repo-text {
           min-width: 0;
@@ -409,7 +422,7 @@ class LhacmPanel extends HTMLElement {
       rows.push(`<tr class="group"><td colspan="8">^ ${this._groupLabel(group)}</td></tr>`);
       for (const repo of repos) {
         rows.push(`<tr>
-          <td><div class="repo"><div class="repo-icon">${this._repoInitials(repo)}</div><div class="repo-text">
+          <td><div class="repo">${this._repoIcon(repo)}<div class="repo-text">
             <div class="name">${this._escape(repo.name)}</div>
             <div class="description">${this._escape(repo.description || repo.full_name)}</div>
           </div></div></td>
@@ -680,6 +693,22 @@ class LhacmPanel extends HTMLElement {
 
   _repoInitials(repo) {
     return this._escape((repo.name || repo.full_name || "LH").slice(0, 2).toUpperCase());
+  }
+
+  _repoIcon(repo) {
+    const fallback = `<span class="repo-icon-fallback">${this._repoInitials(repo)}</span>`;
+    const iconUrl = repo.brand_icon_url || this._brandsIconUrl(repo);
+    if (!iconUrl) {
+      return `<div class="repo-icon">${fallback}</div>`;
+    }
+    return `<div class="repo-icon"><img src="${this._escape(iconUrl)}" referrerpolicy="no-referrer" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'">${fallback.replace("repo-icon-fallback", "repo-icon-fallback\" style=\"display:none")}</div>`;
+  }
+
+  _brandsIconUrl(repo) {
+    if (repo.category !== "integration" || !repo.domain) {
+      return "";
+    }
+    return `/api/brands/${encodeURIComponent(repo.domain)}/icon.png`;
   }
 
   _escape(value) {

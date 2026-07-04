@@ -95,6 +95,7 @@ class ManagedRepository:
     custom: bool = True
     installed_path: str | None = None
     source_url: str | None = None
+    brand_icon_url: str | None = None
     last_checked: str | None = None
     topics: list[str] = field(default_factory=list)
 
@@ -136,6 +137,7 @@ class ManagedRepository:
             custom=bool(data.get("custom", True)),
             installed_path=data.get("installed_path"),
             source_url=data.get("source_url"),
+            brand_icon_url=data.get("brand_icon_url"),
             last_checked=data.get("last_checked"),
             topics=list(data.get("topics") or []),
         )

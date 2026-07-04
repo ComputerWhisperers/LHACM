@@ -268,4 +268,5 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
         "status": repository.status,
         "topics": repository.topics,
         "source_url": repository.source_url or f"{repository.ref.base_url}/{repository.ref.full_name}",
+        "brand_icon_url": repository.brand_icon_url,
     }

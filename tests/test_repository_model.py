@@ -38,3 +38,12 @@ def test_branch_pending_update() -> None:
     )
 
     assert repository.pending_update is True
+
+
+def test_brand_icon_url_round_trip() -> None:
+    """Repository brand icon URLs are persisted."""
+    repository = _repo(brand_icon_url="https://gitlab.example.test/icon.png")
+
+    restored = ManagedRepository.from_json(repository.to_json())
+
+    assert restored.brand_icon_url == "https://gitlab.example.test/icon.png"

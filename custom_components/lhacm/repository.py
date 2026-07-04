@@ -49,6 +49,7 @@ class RepositoryManager:
         releases = [release for release in await self.provider.get_releases(ref) if not release.draft]
         stable_releases = [release for release in releases if not release.prerelease]
         last_version = stable_releases[0].tag if stable_releases else None
+        brand_icon = self._find_brand_icon(tree, category, source.default_branch, domain)
 
         repository = ManagedRepository(
             ref=ref,
@@ -62,6 +63,7 @@ class RepositoryManager:
             downloads=0,
             last_updated=source.last_updated,
             source_url=source.html_url or f"{ref.base_url}/{ref.full_name}",
+            brand_icon_url=brand_icon.download_url if brand_icon else None,
             topics=source.topics,
             last_checked=dt_util.utcnow().isoformat(),
         )
@@ -72,6 +74,37 @@ class RepositoryManager:
             repository.installed_path = existing.installed_path
             repository.custom = existing.custom
         return repository
+
+    def _find_brand_icon(
+        self,
+        tree: list[SourceFile],
+        category: RepositoryCategory,
+        branch: str,
+        domain: str | None,
+    ) -> SourceFile | None:
+        """Find a repository-provided brand icon."""
+        if category != RepositoryCategory.INTEGRATION:
+            return None
+        candidates = [
+            item
+            for item in tree
+            if not item.is_directory
+            and item.download_url
+            and (
+                item.path.lower() == "brand/icon.png"
+                or item.path.lower().endswith("/brand/icon.png")
+            )
+        ]
+        preferred_paths = []
+        if domain:
+            preferred_paths.append(f"custom_components/{domain}/brand/icon.png")
+            preferred_paths.append(f"{domain}/brand/icon.png")
+        preferred_paths.append("brand/icon.png")
+        for path in preferred_paths:
+            match = next((item for item in candidates if item.path.lower() == path.lower()), None)
+            if match:
+                return match
+        return candidates[0] if candidates else None
 
     async def async_install(
         self,
