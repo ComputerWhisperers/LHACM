@@ -21,6 +21,7 @@ def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, lhacm_repositories_add)
     websocket_api.async_register_command(hass, lhacm_repositories_remove)
     websocket_api.async_register_command(hass, lhacm_repositories_refresh)
+    websocket_api.async_register_command(hass, lhacm_repository_info)
     websocket_api.async_register_command(hass, lhacm_repository_refresh)
     websocket_api.async_register_command(hass, lhacm_repository_download)
     websocket_api.async_register_command(hass, lhacm_repository_uninstall)
@@ -175,6 +176,30 @@ async def lhacm_repository_refresh(
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "lhacm/repository/info",
+        vol.Required("repository"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def lhacm_repository_info(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return detailed repository information."""
+    runtime = _runtime(hass)
+    repository = runtime.repositories.get(msg["repository"])
+    if repository is None:
+        connection.send_error(msg["id"], "repository_not_found", "Repository not found")
+        return
+    connection.send_message(
+        websocket_api.result_message(msg["id"], _repository_info_payload(repository))
+    )
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): "lhacm/repository/download",
         vol.Required("repository"): str,
         vol.Optional("version"): str,
@@ -270,3 +295,42 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
         "source_url": repository.source_url or f"{repository.ref.base_url}/{repository.ref.full_name}",
         "brand_icon_url": repository.brand_icon_url,
     }
+
+
+def _repository_info_payload(repository: ManagedRepository) -> dict[str, Any]:
+    """Return repository detail data."""
+    payload = _repository_payload(repository)
+    payload.update(
+        {
+            "provider": repository.ref.provider.value,
+            "base_url": repository.ref.base_url,
+            "owner": repository.ref.owner,
+            "default_branch": repository.default_branch,
+            "installed_path": repository.installed_path,
+            "last_checked": repository.last_checked,
+            "readme": _detail_markdown(repository),
+        }
+    )
+    return payload
+
+
+def _detail_markdown(repository: ManagedRepository) -> str:
+    """Return simple detail markdown for the frontend."""
+    lines = [
+        f"# {repository.display_name}",
+        "",
+        repository.description or "No description provided.",
+        "",
+        "## Repository",
+        "",
+        f"- Source: {repository.source_url or repository.ref.full_name}",
+        f"- Provider: {repository.ref.provider.value}",
+        f"- Type: {repository.category.value}",
+    ]
+    if repository.domain:
+        lines.append(f"- Domain: {repository.domain}")
+    if repository.installed_version:
+        lines.append(f"- Installed version: {repository.installed_version}")
+    if repository.available_version:
+        lines.append(f"- Latest version: {repository.available_version}")
+    return "\n".join(lines)

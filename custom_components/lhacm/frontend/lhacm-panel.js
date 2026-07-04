@@ -15,6 +15,7 @@ class LhacmPanel extends HTMLElement {
     this._sort = "name";
     this._dialog = false;
     this._dialogData = { repository: "", category: "integration" };
+    this._detailRepository = undefined;
     this._render();
   }
 
@@ -76,6 +77,10 @@ class LhacmPanel extends HTMLElement {
 
   _render() {
     if (!this.shadowRoot) return;
+    if (this._detailRepository) {
+      this._renderDetail();
+      return;
+    }
     const groups = this._groupedRepositories();
     this.shadowRoot.innerHTML = `
       <style>
@@ -107,6 +112,11 @@ class LhacmPanel extends HTMLElement {
           align-items: center;
           padding: 12px 16px;
           border-bottom: 1px solid var(--divider-color, #e0e0e0);
+        }
+        .topbar-title {
+          display: flex;
+          align-items: center;
+          gap: 12px;
         }
         button, select, input {
           height: 36px;
@@ -290,6 +300,39 @@ class LhacmPanel extends HTMLElement {
           place-items: center;
           z-index: 5;
         }
+        .detail {
+          padding: 24px;
+          max-width: 980px;
+        }
+        .detail h2 {
+          font-size: 28px;
+          margin: 12px 0 12px;
+        }
+        .chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 18px;
+        }
+        .chip {
+          border: 1px solid var(--divider-color, #ddd);
+          border-radius: 18px;
+          padding: 6px 12px;
+          font-size: 13px;
+          background: var(--card-background-color, #fff);
+        }
+        .markdown {
+          line-height: 1.5;
+          max-width: 920px;
+        }
+        .markdown h1 {
+          font-size: 26px;
+          font-weight: 500;
+        }
+        .markdown h2 {
+          font-size: 20px;
+          margin-top: 24px;
+        }
         .dialog {
           width: min(520px, calc(100vw - 32px));
           max-height: min(680px, calc(100vh - 32px));
@@ -372,7 +415,7 @@ class LhacmPanel extends HTMLElement {
         }
       </style>
       <header>
-        <h1>Local Home Assistant Component Manager</h1>
+        <div class="topbar-title"><h1>Local Home Assistant Component Manager</h1></div>
         <button class="icon-button" id="menuButton" title="Menu">&#8942;</button>
         ${this._menu ? `<div class="menu">
           <button id="docsButton">Documentation</button>
@@ -605,7 +648,7 @@ class LhacmPanel extends HTMLElement {
     } else if (action === "repository") {
       this._openRepository(id);
     } else if (action === "details") {
-      this._showDetails(id);
+      this._navigateToDetails(id);
     }
   }
 
@@ -659,12 +702,124 @@ class LhacmPanel extends HTMLElement {
     this._render();
   }
 
-  _showDetails(id) {
+  _navigateToDetails(id) {
     const repo = this._repositories.find((item) => item.id === id);
-    if (repo) {
-      alert(`${repo.name}\n${repo.full_name}\nInstalled: ${repo.installed_version || "-"}\nLatest: ${repo.available_version || "-"}`);
+    if (!repo) return;
+    this._send({ type: "lhacm/repository/info", repository: id }).then((detail) => {
+      this._detailRepository = detail;
+      if (history && history.pushState) {
+        history.pushState(null, "", `/lhacm/repository/${encodeURIComponent(id)}`);
+      }
+      this._render();
+    });
+  }
+
+  _renderDetail() {
+    const repo = this._detailRepository;
+    this.shadowRoot.innerHTML = `
+      <style>
+        :host {
+          display: block;
+          color: var(--primary-text-color, #202124);
+          background: var(--primary-background-color, #fff);
+          min-height: 100vh;
+          font-family: var(--paper-font-body1_-_font-family, Roboto, Arial, sans-serif);
+        }
+        header {
+          height: 56px;
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 0 18px;
+          border-bottom: 1px solid var(--divider-color, #e0e0e0);
+          box-sizing: border-box;
+        }
+        button {
+          height: 36px;
+          border: 0;
+          background: transparent;
+          color: var(--primary-text-color, #202124);
+          font: inherit;
+          cursor: pointer;
+        }
+        .back {
+          width: 40px;
+          font-size: 28px;
+          line-height: 1;
+        }
+        h1 {
+          font-size: 20px;
+          font-weight: 400;
+          margin: 0;
+        }
+        .detail {
+          padding: 24px;
+          max-width: 980px;
+        }
+        .chips {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-bottom: 18px;
+        }
+        .chip {
+          border: 1px solid var(--divider-color, #ddd);
+          border-radius: 18px;
+          padding: 6px 12px;
+          font-size: 13px;
+          background: var(--card-background-color, #fff);
+        }
+        .markdown {
+          line-height: 1.5;
+          max-width: 920px;
+        }
+        .markdown h1 {
+          font-size: 28px;
+          margin: 12px 0;
+        }
+        .markdown h2 {
+          font-size: 20px;
+          margin-top: 24px;
+        }
+        code {
+          background: var(--secondary-background-color, #f7f7f7);
+          padding: 2px 4px;
+          border-radius: 4px;
+        }
+      </style>
+      <header>
+        <button class="back" id="backButton" title="Back">&#8592;</button>
+        <h1>${this._escape(repo.name)}</h1>
+      </header>
+      <main class="detail">
+        <div class="chips">
+          <span class="chip">${this._escape(repo.available_version || "No version")}</span>
+          <span class="chip">${this._escape(repo.provider || "")}</span>
+          <span class="chip">${this._typeLabel(repo.category)}</span>
+          <span class="chip">${this._escape(String(repo.stars || 0))} stars</span>
+          <span class="chip">${this._escape(String(repo.downloads || 0))} downloads</span>
+        </div>
+        <div class="markdown">${this._markdownToHtml(repo.readme || "")}</div>
+      </main>
+    `;
+    this._on("backButton", "click", () => this._backToList());
+  }
+
+  _backToList() {
+    this._detailRepository = undefined;
+    if (history && history.pushState) {
+      history.pushState(null, "", "/lhacm");
     }
     this._render();
+  }
+
+  _markdownToHtml(markdown) {
+    return this._escape(markdown)
+      .replace(/^# (.*)$/gm, "<h1>$1</h1>")
+      .replace(/^## (.*)$/gm, "<h2>$1</h2>")
+      .replace(/^- (.*)$/gm, "<li>$1</li>")
+      .replace(/\n\n/g, "<br><br>")
+      .replace(/`([^`]+)`/g, "<code>$1</code>");
   }
 
 
