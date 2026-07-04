@@ -24,6 +24,7 @@ from .const import (
     ProviderType,
     RepositoryCategory,
     SIGNAL_REPOSITORIES_UPDATED,
+    VERSION,
 )
 from .exceptions import LHACMError
 from .models import ManagedRepository, RepositoryRef
@@ -238,7 +239,7 @@ async def _async_register_frontend(hass: HomeAssistant, entry: LHACMConfigEntry)
         config={
             "_panel_custom": {
                 "name": "lhacm-panel",
-                "module_url": f"/{DOMAIN}_frontend/lhacm-panel.js",
+                "module_url": f"/{DOMAIN}_frontend/lhacm-panel.js?v={VERSION}",
                 "embed_iframe": False,
                 "trust_external": False,
             }

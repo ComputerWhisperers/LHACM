@@ -295,6 +295,12 @@ class LhacmPanel extends HTMLElement {
           border: 0;
           font-size: 22px;
         }
+        .trash-button {
+          width: 40px;
+          padding: 0;
+          font-size: 28px;
+          line-height: 1;
+        }
         .form {
           display: grid;
           gap: 14px;
@@ -330,7 +336,7 @@ class LhacmPanel extends HTMLElement {
       </style>
       <header>
         <h1>Local Home Assistant Component Manager</h1>
-        <button class="icon-button" id="menuButton" title="Menu">...</button>
+        <button class="icon-button" id="menuButton" title="Menu">&#8942;</button>
         ${this._menu ? `<div class="menu">
           <button id="docsButton">Documentation</button>
           <button id="sourceButton">Repository</button>
@@ -389,7 +395,7 @@ class LhacmPanel extends HTMLElement {
           <td>${this._typeLabel(repo.category)}</td>
           <td class="wide">${this._escape(repo.installed_version || "-")}</td>
           <td class="wide">${this._escape(repo.available_version || "-")}</td>
-          <td class="actions"><button class="icon-button row-menu" data-id="${this._escape(repo.id)}">...</button></td>
+          <td class="actions"><button class="icon-button row-menu" data-id="${this._escape(repo.id)}" title="Repository menu">&#8942;</button></td>
         </tr>`);
       }
     }
@@ -406,7 +412,7 @@ class LhacmPanel extends HTMLElement {
         <div class="dialog-body">
           ${custom.map((repo) => `<div class="custom-row">
             <div><div>${this._escape(repo.name)}</div><div class="sub">${this._escape(repo.full_name)} (${this._typeLabel(repo.category)})</div></div>
-            <button class="delete" data-remove="${this._escape(repo.id)}">Delete</button>
+            <button class="delete trash-button" data-remove="${this._escape(repo.id)}" title="Remove repository" aria-label="Remove repository">&#128465;</button>
           </div>`).join("")}
           <div class="form">
             <input id="repoInput" placeholder="Repository" value="${this._escape(this._dialogData.repository)}">
