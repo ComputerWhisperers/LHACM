@@ -9,6 +9,7 @@ from pathlib import Path
 
 from homeassistant.components import frontend
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.persistent_notification import async_dismiss as async_dismiss_notification
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall
@@ -93,6 +94,7 @@ class LHACMRuntime:
     ) -> None:
         """Create a Home Assistant repair issue for repository file changes."""
         issue_hash = hashlib.sha1(repository.key.encode()).hexdigest()[:12]
+        async_dismiss_notification(self.hass, f"{DOMAIN}_restart_required_{repository.key}")
         ir.async_create_issue(
             self.hass,
             DOMAIN,

@@ -22,6 +22,7 @@ def async_setup(hass: HomeAssistant) -> None:
     websocket_api.async_register_command(hass, lhacm_repositories_remove)
     websocket_api.async_register_command(hass, lhacm_repositories_refresh)
     websocket_api.async_register_command(hass, lhacm_repository_info)
+    websocket_api.async_register_command(hass, lhacm_repository_versions)
     websocket_api.async_register_command(hass, lhacm_repository_refresh)
     websocket_api.async_register_command(hass, lhacm_repository_download)
     websocket_api.async_register_command(hass, lhacm_repository_uninstall)
@@ -201,6 +202,45 @@ async def lhacm_repository_info(
 
 @websocket_api.websocket_command(
     {
+        vol.Required("type"): "lhacm/repository/versions",
+        vol.Required("repository"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def lhacm_repository_versions(
+    hass: HomeAssistant,
+    connection: websocket_api.ActiveConnection,
+    msg: dict[str, Any],
+) -> None:
+    """Return downloadable versions for a repository."""
+    runtime = _runtime(hass)
+    repository = runtime.repositories.get(msg["repository"])
+    if repository is None:
+        connection.send_error(msg["id"], "repository_not_found", "Repository not found")
+        return
+
+    versions = _repository_version_options(repository)
+    manager = runtime.manager_for_ref(repository.ref)
+    try:
+        releases = await manager.provider.get_releases(repository.ref)
+    except LHACMError as exception:
+        connection.send_error(msg["id"], "versions_error", str(exception))
+        return
+
+    for release in releases:
+        if release.draft:
+            continue
+        label = release.name or release.tag
+        if release.prerelease:
+            label = f"{label} (pre-release)"
+        _append_version_option(versions, release.tag, label)
+
+    connection.send_message(websocket_api.result_message(msg["id"], versions))
+
+
+@websocket_api.websocket_command(
+    {
         vol.Required("type"): "lhacm/repository/download",
         vol.Required("repository"): str,
         vol.Optional("version"): str,
@@ -298,6 +338,39 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
         "source_url": repository.source_url or f"{repository.ref.base_url}/{repository.ref.full_name}",
         "brand_icon_url": repository.brand_icon_url,
     }
+
+
+def _repository_version_options(repository: ManagedRepository) -> list[dict[str, str]]:
+    """Return local version options before provider release options are added."""
+    versions: list[dict[str, str]] = []
+    if repository.available_version:
+        _append_version_option(versions, repository.available_version, repository.available_version)
+    elif repository.default_branch:
+        _append_version_option(
+            versions,
+            repository.default_branch,
+            f"{repository.default_branch} (default branch)",
+        )
+    if repository.installed_version and repository.installed_version != repository.available_version:
+        _append_version_option(
+            versions,
+            repository.installed_version,
+            f"{repository.installed_version} (installed)",
+        )
+    return versions
+
+
+def _append_version_option(
+    versions: list[dict[str, str]],
+    value: str | None,
+    label: str | None,
+) -> None:
+    """Append a version option if it is not already present."""
+    if not value:
+        return
+    if any(option["value"] == value for option in versions):
+        return
+    versions.append({"value": value, "label": label or value})
 
 
 def _repository_info_payload(repository: ManagedRepository) -> dict[str, Any]:

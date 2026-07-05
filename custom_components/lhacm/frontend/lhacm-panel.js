@@ -15,6 +15,7 @@ class LhacmPanel extends HTMLElement {
     this._sort = "name";
     this._dialog = false;
     this._dialogData = { repository: "", category: "integration" };
+    this._versionDialog = undefined;
     this._detailRepository = undefined;
     this._render();
   }
@@ -407,6 +408,10 @@ class LhacmPanel extends HTMLElement {
           box-sizing: border-box;
           height: 48px;
         }
+        .version-summary {
+          color: var(--secondary-text-color, #5f6368);
+          margin-bottom: 14px;
+        }
         .dialog-actions {
           display: flex;
           justify-content: flex-end;
@@ -419,14 +424,71 @@ class LhacmPanel extends HTMLElement {
           font-weight: 500;
         }
         @media (max-width: 720px) {
+          header {
+            height: auto;
+            min-height: 64px;
+            align-items: flex-start;
+            padding: 16px;
+            gap: 12px;
+          }
+          h1 {
+            font-size: 20px;
+            line-height: 1.2;
+          }
           .toolbar {
             grid-template-columns: 1fr auto;
+            padding: 12px 16px;
           }
           .toolbar button:first-child, .toolbar select {
             display: none;
           }
+          table, thead, tbody {
+            display: block;
+          }
+          thead {
+            display: none;
+          }
+          tr {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 44px;
+            align-items: center;
+            border-bottom: 1px solid var(--divider-color, #e6e6e6);
+            min-height: 72px;
+          }
+          th, td {
+            border-bottom: 0;
+            white-space: normal;
+          }
+          tr.group {
+            display: block;
+            min-height: 52px;
+          }
+          .group td {
+            display: block;
+            height: auto;
+            padding: 18px 16px;
+          }
+          td:first-child {
+            min-width: 0;
+          }
+          td.actions {
+            width: 44px;
+            grid-column: 2;
+            grid-row: 1;
+            padding-right: 4px;
+          }
           .wide {
             display: none;
+          }
+          td:not(:first-child):not(.actions):not(.wide) {
+            display: none;
+          }
+          .repo {
+            min-width: 0;
+          }
+          .dialog {
+            width: calc(100vw - 24px);
+            border-radius: 16px;
           }
         }
       </style>
@@ -458,6 +520,7 @@ class LhacmPanel extends HTMLElement {
       ${this._menu || this._rowMenu ? this._menuDismissLayer() : ""}
       ${this._rowMenu ? this._rowMenuTemplate() : ""}
       ${this._dialog ? this._dialogTemplate() : ""}
+      ${this._versionDialog ? this._versionDialogTemplate() : ""}
     `;
     this._bind();
   }
@@ -522,6 +585,32 @@ class LhacmPanel extends HTMLElement {
     </div>`;
   }
 
+  _versionDialogTemplate() {
+    const repo = this._repositories.find((item) => item.id === this._versionDialog.id);
+    const title = repo ? (repo.installed ? "Redownload" : "Download") : "Download";
+    const versions = this._versionDialog.versions || [];
+    return `<div class="dialog-backdrop">
+      <div class="dialog">
+        <header><button class="icon-button" id="versionCloseDialog">x</button><h2>${title}</h2></header>
+        <div class="dialog-body">
+          <div class="version-summary">${this._escape(repo ? repo.name : "")}</div>
+          ${this._versionDialog.loading ? `<div class="empty">Loading versions...</div>` : `
+            <div class="form">
+              <select id="versionInput">
+                ${versions.map((version) => `<option value="${this._escape(version.value)}" ${this._versionDialog.version === version.value ? "selected" : ""}>${this._escape(version.label)}</option>`).join("")}
+              </select>
+              ${this._versionDialog.error ? `<div class="error">${this._escape(this._versionDialog.error)}</div>` : ""}
+            </div>
+          `}
+        </div>
+        <div class="dialog-actions">
+          <button class="primary" id="cancelVersionDialog">CANCEL</button>
+          <button class="primary" id="confirmVersionDownload" ${this._versionDialog.loading || !this._versionDialog.version ? "disabled" : ""}>DOWNLOAD</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   _bind() {
     this._on("menuButton", "click", (ev) => {
       ev.stopPropagation();
@@ -565,6 +654,12 @@ class LhacmPanel extends HTMLElement {
     });
     this._on("closeDialog", "click", () => this._closeDialog());
     this._on("cancelDialog", "click", () => this._closeDialog());
+    this._on("versionCloseDialog", "click", () => this._closeVersionDialog());
+    this._on("cancelVersionDialog", "click", () => this._closeVersionDialog());
+    this._on("versionInput", "change", (ev) => {
+      this._versionDialog.version = ev.target.value;
+    });
+    this._on("confirmVersionDownload", "click", () => this._confirmDownload());
     this._on("repoInput", "input", (ev) => {
       this._dialogData.repository = ev.target.value;
       this._render();
@@ -666,7 +761,7 @@ class LhacmPanel extends HTMLElement {
   _repositoryAction(action, id) {
     this._rowMenu = undefined;
     if (action === "install" || action === "redownload") {
-      this._download(id);
+      this._openDownloadDialog(id);
     } else if (action === "uninstall") {
       this._uninstall(id);
     } else if (action === "remove") {
@@ -680,16 +775,48 @@ class LhacmPanel extends HTMLElement {
     }
   }
 
-  _download(id) {
+  _openDownloadDialog(id) {
     const repo = this._repositories.find((item) => item.id === id);
     if (!repo) return;
-    const message = repo.installed
-      ? { type: "lhacm/repository/download", repository: id, version: repo.available_version || undefined }
-      : { type: "lhacm/repository/download", repository: id };
+    this._versionDialog = { id, loading: true, versions: [], version: "", error: "" };
+    this._render();
+    this._send({ type: "lhacm/repository/versions", repository: id }).then((versions) => {
+      const options = versions && versions.length ? versions : [{ value: repo.available_version || "", label: repo.available_version || "Default" }];
+      this._versionDialog = {
+        id,
+        loading: false,
+        versions: options,
+        version: options[0].value,
+        error: "",
+      };
+      this._render();
+    }).catch((err) => {
+      this._versionDialog = {
+        id,
+        loading: false,
+        versions: [{ value: repo.available_version || "", label: repo.available_version || "Default" }],
+        version: repo.available_version || "",
+        error: err.message || String(err),
+      };
+      this._render();
+    });
+  }
+
+  _confirmDownload() {
+    if (!this._versionDialog) return;
+    this._download(this._versionDialog.id, this._versionDialog.version || undefined);
+  }
+
+  _download(id, version) {
+    const message = { type: "lhacm/repository/download", repository: id };
+    if (version) {
+      message.version = version;
+    }
     this._send(message).then(() => {
       return this._send({ type: "lhacm/repositories/list" });
     }).then((repositories) => {
       this._repositories = repositories;
+      this._versionDialog = undefined;
       this._render();
     });
   }
@@ -852,6 +979,11 @@ class LhacmPanel extends HTMLElement {
   _closeDialog() {
     this._dialog = false;
     this._dialogError = "";
+    this._render();
+  }
+
+  _closeVersionDialog() {
+    this._versionDialog = undefined;
     this._render();
   }
 

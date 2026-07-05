@@ -130,6 +130,7 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
         repository = self.repository
         if repository:
             await self._runtime.refresh_repository(repository)
+            self.async_write_ha_state()
 
     async def async_install(
         self,
