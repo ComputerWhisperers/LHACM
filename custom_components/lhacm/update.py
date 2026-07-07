@@ -44,7 +44,7 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
     """A Home Assistant update entity for an LHACM repository."""
 
     _attr_device_class = UpdateDeviceClass.FIRMWARE
-    _attr_supported_features = UpdateEntityFeature.INSTALL
+    _attr_supported_features = UpdateEntityFeature.INSTALL | UpdateEntityFeature.RELEASE_NOTES
 
     def __init__(self, runtime, repository_key: str) -> None:
         """Initialize entity."""
@@ -62,6 +62,12 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
         """Return entity name."""
         repository = self.repository
         return f"{repository.display_name} update" if repository else "LHACM repository update"
+
+    @property
+    def title(self) -> str | None:
+        """Return update title."""
+        repository = self.repository
+        return repository.display_name if repository else None
 
     @property
     def device_info(self) -> dict:
@@ -111,7 +117,15 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
         repository = self.repository
         if not repository:
             return None
-        return repository.source_url
+        return repository.last_release_url or repository.source_url
+
+    @property
+    def release_summary(self) -> str | None:
+        """Return a short update summary."""
+        repository = self.repository
+        if not repository:
+            return None
+        return repository.last_release_name or repository.description
 
     @property
     def entity_picture(self) -> str | None:
@@ -124,6 +138,17 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
         if repository.category.value == "integration" and repository.domain:
             return f"/api/brands/{repository.domain}/icon.png"
         return None
+
+    async def async_release_notes(self) -> str | None:
+        """Return release notes for the Home Assistant update dialog."""
+        repository = self.repository
+        if not repository:
+            return None
+        if repository.last_release_notes:
+            return repository.last_release_notes
+        if repository.available_version:
+            return f"# {repository.available_version} - {repository.display_name}"
+        return repository.description
 
     async def async_update(self) -> None:
         """Refresh repository metadata."""

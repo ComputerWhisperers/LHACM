@@ -137,6 +137,8 @@ class GitLabProvider(RepositoryProvider):
             SourceRelease(
                 tag=release["tag_name"],
                 name=release.get("name"),
+                body=release.get("description"),
+                html_url=(release.get("_links") or {}).get("self"),
                 prerelease=bool(release.get("upcoming_release", False)),
                 assets=list((release.get("assets") or {}).get("links") or []),
             )
@@ -234,6 +236,8 @@ class GiteaProvider(RepositoryProvider):
             SourceRelease(
                 tag=release["tag_name"],
                 name=release.get("name"),
+                body=release.get("body"),
+                html_url=release.get("html_url"),
                 prerelease=bool(release.get("prerelease", False)),
                 draft=bool(release.get("draft", False)),
                 assets=list(release.get("assets") or []),

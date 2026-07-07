@@ -48,7 +48,8 @@ class RepositoryManager:
 
         releases = [release for release in await self.provider.get_releases(ref) if not release.draft]
         stable_releases = [release for release in releases if not release.prerelease]
-        last_version = stable_releases[0].tag if stable_releases else None
+        latest_release = stable_releases[0] if stable_releases else None
+        last_version = latest_release.tag if latest_release else None
         manifest_version = self._manifest_version(manifest)
         brand_icon = self._find_brand_icon(tree, category, source.default_branch, domain)
 
@@ -58,6 +59,9 @@ class RepositoryManager:
             domain=domain,
             default_branch=source.default_branch,
             last_version=last_version,
+            last_release_name=latest_release.name if latest_release else None,
+            last_release_notes=latest_release.body if latest_release else None,
+            last_release_url=latest_release.html_url if latest_release else None,
             manifest_version=manifest_version,
             name=manifest.get("name") if isinstance(manifest, dict) else source.ref.name,
             description=source.description,

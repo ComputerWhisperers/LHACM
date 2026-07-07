@@ -70,6 +70,8 @@ class SourceRelease:
 
     tag: str
     name: str | None = None
+    body: str | None = None
+    html_url: str | None = None
     prerelease: bool = False
     draft: bool = False
     assets: list[dict[str, Any]] = field(default_factory=list)
@@ -87,6 +89,9 @@ class ManagedRepository:
     installed: bool = False
     default_branch: str | None = None
     last_version: str | None = None
+    last_release_name: str | None = None
+    last_release_notes: str | None = None
+    last_release_url: str | None = None
     manifest_version: str | None = None
     name: str | None = None
     description: str | None = None
@@ -130,6 +135,9 @@ class ManagedRepository:
             installed=bool(data.get("installed", False)),
             default_branch=data.get("default_branch"),
             last_version=data.get("last_version"),
+            last_release_name=data.get("last_release_name"),
+            last_release_notes=data.get("last_release_notes"),
+            last_release_url=data.get("last_release_url"),
             manifest_version=data.get("manifest_version"),
             name=data.get("name"),
             description=data.get("description"),

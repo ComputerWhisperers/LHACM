@@ -9,10 +9,12 @@ from datetime import UTC, datetime
 
 def _install_homeassistant_stubs() -> None:
     homeassistant = types.ModuleType("homeassistant")
+    data_entry_flow = types.ModuleType("homeassistant.data_entry_flow")
     components = types.ModuleType("homeassistant.components")
     frontend = types.ModuleType("homeassistant.components.frontend")
     http = types.ModuleType("homeassistant.components.http")
     persistent_notification = types.ModuleType("homeassistant.components.persistent_notification")
+    repairs = types.ModuleType("homeassistant.components.repairs")
     websocket_api = types.ModuleType("homeassistant.components.websocket_api")
     config_entries = types.ModuleType("homeassistant.config_entries")
     const = types.ModuleType("homeassistant.const")
@@ -46,6 +48,17 @@ def _install_homeassistant_stubs() -> None:
         def __init__(self, *_args, **_kwargs) -> None:
             pass
 
+    class RepairsFlow:
+        """Minimal RepairsFlow stub."""
+
+        hass = None
+
+        def async_show_form(self, **kwargs):
+            return {"type": "form", **kwargs}
+
+        def async_create_entry(self, **kwargs):
+            return {"type": "create_entry", **kwargs}
+
     class Platform:
         """Minimal Platform stub."""
 
@@ -64,12 +77,15 @@ def _install_homeassistant_stubs() -> None:
     core.HomeAssistant = HomeAssistant
     core.ServiceCall = ServiceCall
     core.callback = lambda func: func
+    data_entry_flow.FlowResult = dict
     frontend.async_register_built_in_panel = lambda *_args, **_kwargs: None
     frontend.async_remove_panel = lambda *_args, **_kwargs: None
     http.StaticPathConfig = StaticPathConfig
     persistent_notification.async_dismiss = lambda *_args, **_kwargs: None
+    repairs.RepairsFlow = RepairsFlow
     issue_registry.IssueSeverity = types.SimpleNamespace(WARNING="warning")
     issue_registry.async_create_issue = lambda *_args, **_kwargs: None
+    issue_registry.async_delete_issue = lambda *_args, **_kwargs: None
     helpers.issue_registry = issue_registry
     websocket_api.ActiveConnection = object
     websocket_api.async_register_command = lambda *_args, **_kwargs: None
@@ -83,6 +99,7 @@ def _install_homeassistant_stubs() -> None:
     dt.utcnow = lambda: datetime.now(UTC)
 
     sys.modules.setdefault("homeassistant", homeassistant)
+    sys.modules.setdefault("homeassistant.data_entry_flow", data_entry_flow)
     sys.modules.setdefault("homeassistant.components", components)
     sys.modules.setdefault("homeassistant.components.frontend", frontend)
     sys.modules.setdefault("homeassistant.components.http", http)
@@ -90,6 +107,7 @@ def _install_homeassistant_stubs() -> None:
         "homeassistant.components.persistent_notification",
         persistent_notification,
     )
+    sys.modules.setdefault("homeassistant.components.repairs", repairs)
     sys.modules.setdefault("homeassistant.components.websocket_api", websocket_api)
     sys.modules.setdefault("homeassistant.config_entries", config_entries)
     sys.modules.setdefault("homeassistant.const", const)
