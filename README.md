@@ -1,6 +1,6 @@
 # LHACM
 
-[![Version](https://img.shields.io/badge/version-1.0.21-blue.svg)](https://github.com/computerwhisperers/LHACM/releases/tag/v1.0.21)
+[![Version](https://img.shields.io/badge/version-1.0.22-blue.svg)](https://github.com/computerwhisperers/LHACM/releases/tag/v1.0.22)
 [![Home Assistant](https://img.shields.io/badge/Home%20Assistant-custom%20integration-41BDF5.svg)](https://www.home-assistant.io/)
 [![Providers](https://img.shields.io/badge/providers-GitLab%20%7C%20Gitea-FCA121.svg)](#configuration)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](#lhacm)

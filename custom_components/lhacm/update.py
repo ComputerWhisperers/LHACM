@@ -28,9 +28,12 @@ async def async_setup_entry(
                 continue
             entity = LHACMRepositoryUpdateEntity(runtime, repository.key)
             entities[repository.key] = entity
+            runtime.update_entities[repository.key] = entity
             new_entities.append(entity)
         if new_entities:
             async_add_entities(new_entities)
+        for key, entity in entities.items():
+            runtime.update_entities[key] = entity
         for entity in entities.values():
             entity.async_write_ha_state()
 

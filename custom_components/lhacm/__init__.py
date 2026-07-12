@@ -52,6 +52,7 @@ class LHACMRuntime:
     session: object
     hass: HomeAssistant
     repositories: dict[str, ManagedRepository] = field(default_factory=dict)
+    update_entities: dict[str, object] = field(default_factory=dict)
 
     def manager_for_ref(self, ref: RepositoryRef) -> RepositoryManager:
         """Create a repository manager for a repository reference."""
@@ -69,6 +70,8 @@ class LHACMRuntime:
     async def save(self) -> None:
         """Persist repositories and notify listeners."""
         await self.store.async_save(self.repositories)
+        for entity in self.update_entities.values():
+            entity.async_write_ha_state()
         async_dispatcher_send(self.hass, SIGNAL_REPOSITORIES_UPDATED)
 
     async def refresh_repository(self, repository: ManagedRepository) -> ManagedRepository:
