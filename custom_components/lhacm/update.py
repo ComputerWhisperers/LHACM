@@ -32,8 +32,7 @@ async def async_setup_entry(
         if new_entities:
             async_add_entities(new_entities)
         for entity in entities.values():
-            if getattr(entity, "hass", None) is not None:
-                entity.async_write_ha_state()
+            entity.async_write_ha_state()
 
     entry.async_on_unload(
         async_dispatcher_connect(hass, SIGNAL_REPOSITORIES_UPDATED, sync_entities)
