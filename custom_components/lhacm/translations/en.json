@@ -37,7 +37,8 @@
         "step": {
           "confirm": {
             "title": "Restart required",
-            "description": "Restart of Home Assistant is required to finish download/update of {name}, click submit to restart now."
+            "description": "Restart of Home Assistant is required to finish download/update of {name}, click submit to restart now.",
+            "submit": "Restart"
           }
         }
       }
@@ -47,7 +48,8 @@
     "step": {
       "confirm": {
         "title": "Restart required",
-        "description": "Restart of Home Assistant is required to finish download/update of {name}, click submit to restart now."
+        "description": "Restart of Home Assistant is required to finish download/update of {name}, click submit to restart now.",
+        "submit": "Restart"
       }
     }
   }

@@ -94,11 +94,13 @@ class LHACMRuntime:
     ) -> None:
         """Create a Home Assistant repair issue for repository file changes."""
         issue_hash = hashlib.sha1(repository.key.encode()).hexdigest()[:12]
+        issue_id = f"restart_required_{issue_hash}"
         async_dismiss_notification(self.hass, f"{DOMAIN}_restart_required_{repository.key}")
+        ir.async_delete_issue(self.hass, DOMAIN, issue_id)
         ir.async_create_issue(
             self.hass,
             DOMAIN,
-            f"restart_required_{issue_hash}",
+            issue_id,
             breaks_in_ha_version=None,
             data={
                 "action": action,
