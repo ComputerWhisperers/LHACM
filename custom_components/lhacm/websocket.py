@@ -308,6 +308,8 @@ async def lhacm_repository_uninstall(
 
 def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
     """Return frontend repository data with HACS-compatible field names."""
+    pending_update = repository.pending_update
+    status = "pending-upgrade" if pending_update else repository.status
     return {
         "authors": [],
         "available_version": repository.available_version,
@@ -330,10 +332,10 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
         "local_path": "",
         "name": repository.display_name,
         "new": False,
-        "pending_upgrade": repository.pending_update,
+        "pending_upgrade": pending_update,
         "stars": repository.stars,
         "state": None,
-        "status": repository.status,
+        "status": status,
         "topics": repository.topics,
         "source_url": repository.source_url or f"{repository.ref.base_url}/{repository.ref.full_name}",
         "brand_icon_url": repository.brand_icon_url,
