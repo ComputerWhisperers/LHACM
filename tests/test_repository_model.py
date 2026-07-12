@@ -70,6 +70,20 @@ def test_manifest_version_pending_update_uses_normalized_strings() -> None:
     assert repository.status == "pending-upgrade"
 
 
+def test_refresh_keeps_installed_and_available_versions_separate() -> None:
+    """Installed and remote versions must not collapse during refresh."""
+    repository = _repo(
+        installed=True,
+        installed_version="1.0.0",
+        manifest_version="1.0.1",
+        last_updated="2026-07-12T10:00:00Z",
+    )
+
+    assert repository.installed_version == "1.0.0"
+    assert repository.available_version == "1.0.1"
+    assert repository.pending_update is True
+
+
 def test_brand_icon_url_round_trip() -> None:
     """Repository brand icon URLs are persisted."""
     repository = _repo(brand_icon_url="https://gitlab.example.test/icon.png")

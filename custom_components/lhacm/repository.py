@@ -75,10 +75,7 @@ class RepositoryManager:
         )
         if existing is not None:
             repository.installed = existing.installed
-            repository.installed_version = self._preserve_installed_version(
-                existing,
-                repository.available_version,
-            )
+            repository.installed_version = self._installed_version(existing)
             repository.installed_commit = existing.installed_commit
             repository.installed_path = existing.installed_path
             repository.custom = existing.custom
@@ -91,17 +88,28 @@ class RepositoryManager:
             return None
         return str(version)
 
-    def _preserve_installed_version(
-        self,
-        existing: ManagedRepository,
-        available_version: str,
-    ) -> str | None:
-        """Keep an installed version unless it is an old activity timestamp fallback."""
-        if not existing.installed_version:
-            return existing.installed_version
-        if available_version and existing.installed_version == existing.last_updated:
-            return available_version
+    def _installed_version(self, existing: ManagedRepository) -> str | None:
+        """Return the version currently installed on disk."""
+        manifest_version = self._installed_manifest_version(existing)
+        if manifest_version:
+            return manifest_version
         return existing.installed_version
+
+    def _installed_manifest_version(self, repository: ManagedRepository) -> str | None:
+        """Read the installed manifest version for a downloaded repository."""
+        if not repository.installed_path:
+            return None
+        manifest_path = pathlib.Path(repository.installed_path) / "manifest.json"
+        if not manifest_path.is_file():
+            return None
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        version = manifest.get("version") if isinstance(manifest, dict) else None
+        if version in (None, ""):
+            return None
+        return str(version)
 
     def _find_brand_icon(
         self,
