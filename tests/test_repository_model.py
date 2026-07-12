@@ -56,6 +56,20 @@ def test_manifest_version_is_available_version() -> None:
     assert repository.pending_update is True
 
 
+def test_manifest_version_pending_update_uses_normalized_strings() -> None:
+    """Manifest-backed repositories are pending when visible versions differ."""
+    repository = _repo(
+        installed=True,
+        installed_version=" 1.0.0 ",
+        manifest_version="1.0.1",
+        last_updated="2026-07-12T10:00:00Z",
+    )
+
+    assert repository.available_version == "1.0.1"
+    assert repository.pending_update is True
+    assert repository.status == "pending-upgrade"
+
+
 def test_brand_icon_url_round_trip() -> None:
     """Repository brand icon URLs are persisted."""
     repository = _repo(brand_icon_url="https://gitlab.example.test/icon.png")

@@ -70,11 +70,19 @@ class LhacmPanel extends HTMLElement {
     for (const repo of this._filteredRepositories()) {
       const key = this._group === "type"
         ? repo.category
-        : repo.pending_upgrade ? "pending_update" : repo.installed ? "downloaded" : "available";
+        : this._hasPendingUpdate(repo) ? "pending_update" : repo.installed ? "downloaded" : "available";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(repo);
     }
     return groups;
+  }
+
+  _hasPendingUpdate(repo) {
+    if (!repo || !repo.installed) return false;
+    if (repo.pending_upgrade) return true;
+    const installed = String(repo.installed_version || "").trim();
+    const latest = String(repo.available_version || "").trim();
+    return latest !== "" && installed !== latest;
   }
 
   _render() {
