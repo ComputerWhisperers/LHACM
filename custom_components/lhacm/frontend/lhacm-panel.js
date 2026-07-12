@@ -68,7 +68,9 @@ class LhacmPanel extends HTMLElement {
   _groupedRepositories() {
     const groups = new Map();
     for (const repo of this._filteredRepositories()) {
-      const key = this._group === "type" ? repo.category : repo.installed ? "downloaded" : "available";
+      const key = this._group === "type"
+        ? repo.category
+        : repo.pending_upgrade ? "pending_update" : repo.installed ? "downloaded" : "available";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(repo);
     }
@@ -728,9 +730,7 @@ class LhacmPanel extends HTMLElement {
     if (!repo) return "";
     const id = this._escape(repo.id);
     const primaryAction = repo.installed ? "redownload" : "install";
-    const primaryLabel = repo.installed
-      ? repo.pending_upgrade ? "Update" : "Redownload"
-      : "Download";
+    const primaryLabel = repo.installed ? "Redownload" : "Download";
     return `<div class="row-menu-popover" style="top:${this._rowMenu.top}px;left:${this._rowMenu.left}px">
       <button data-row-action="details" data-id="${id}">${this._menuIcon("info")}<span>Show details</span></button>
       <button data-row-action="repository" data-id="${id}">${this._menuIcon("github")}<span>Repository</span></button>
@@ -988,6 +988,7 @@ class LhacmPanel extends HTMLElement {
   }
 
   _groupLabel(group) {
+    if (group === "pending_update") return "Pending update";
     if (group === "downloaded") return "Downloaded";
     if (group === "available") return "Available for download";
     return this._typeLabel(group);
