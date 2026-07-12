@@ -15,11 +15,13 @@ def _install_homeassistant_stubs() -> None:
     http = types.ModuleType("homeassistant.components.http")
     persistent_notification = types.ModuleType("homeassistant.components.persistent_notification")
     repairs = types.ModuleType("homeassistant.components.repairs")
+    update = types.ModuleType("homeassistant.components.update")
     websocket_api = types.ModuleType("homeassistant.components.websocket_api")
     config_entries = types.ModuleType("homeassistant.config_entries")
     const = types.ModuleType("homeassistant.const")
     core = types.ModuleType("homeassistant.core")
     dispatcher = types.ModuleType("homeassistant.helpers.dispatcher")
+    entity_platform = types.ModuleType("homeassistant.helpers.entity_platform")
     helpers = types.ModuleType("homeassistant.helpers")
     issue_registry = types.ModuleType("homeassistant.helpers.issue_registry")
     util = types.ModuleType("homeassistant.util")
@@ -64,6 +66,25 @@ def _install_homeassistant_stubs() -> None:
 
         UPDATE = "update"
 
+    class UpdateDeviceClass:
+        """Minimal update device class stub."""
+
+        FIRMWARE = "firmware"
+
+    class UpdateEntity:
+        """Minimal update entity stub."""
+
+        def async_write_ha_state(self) -> None:
+            self.state_writes = getattr(self, "state_writes", 0) + 1
+
+    class UpdateEntityFeature:
+        """Minimal update entity feature flags."""
+
+        INSTALL = 1
+        SPECIFIC_VERSION = 2
+        PROGRESS = 4
+        RELEASE_NOTES = 8
+
     def passthrough_decorator(*_args, **_kwargs):
         """Return a decorator that leaves websocket handlers unchanged."""
 
@@ -78,11 +99,15 @@ def _install_homeassistant_stubs() -> None:
     core.ServiceCall = ServiceCall
     core.callback = lambda func: func
     data_entry_flow.FlowResult = dict
+    entity_platform.AddEntitiesCallback = object
     frontend.async_register_built_in_panel = lambda *_args, **_kwargs: None
     frontend.async_remove_panel = lambda *_args, **_kwargs: None
     http.StaticPathConfig = StaticPathConfig
     persistent_notification.async_dismiss = lambda *_args, **_kwargs: None
     repairs.RepairsFlow = RepairsFlow
+    update.UpdateDeviceClass = UpdateDeviceClass
+    update.UpdateEntity = UpdateEntity
+    update.UpdateEntityFeature = UpdateEntityFeature
     issue_registry.IssueSeverity = types.SimpleNamespace(WARNING="warning")
     issue_registry.async_create_issue = lambda *_args, **_kwargs: None
     issue_registry.async_delete_issue = lambda *_args, **_kwargs: None
@@ -95,6 +120,7 @@ def _install_homeassistant_stubs() -> None:
     websocket_api.websocket_command = passthrough_decorator
     aiohttp_client.async_get_clientsession = lambda _hass: None
     storage.Store = Store
+    dispatcher.async_dispatcher_connect = lambda *_args, **_kwargs: (lambda: None)
     dispatcher.async_dispatcher_send = lambda *_args, **_kwargs: None
     dt.utcnow = lambda: datetime.now(UTC)
 
@@ -108,6 +134,7 @@ def _install_homeassistant_stubs() -> None:
         persistent_notification,
     )
     sys.modules.setdefault("homeassistant.components.repairs", repairs)
+    sys.modules.setdefault("homeassistant.components.update", update)
     sys.modules.setdefault("homeassistant.components.websocket_api", websocket_api)
     sys.modules.setdefault("homeassistant.config_entries", config_entries)
     sys.modules.setdefault("homeassistant.const", const)
@@ -115,6 +142,7 @@ def _install_homeassistant_stubs() -> None:
     sys.modules.setdefault("homeassistant.helpers", helpers)
     sys.modules.setdefault("homeassistant.helpers.aiohttp_client", aiohttp_client)
     sys.modules.setdefault("homeassistant.helpers.dispatcher", dispatcher)
+    sys.modules.setdefault("homeassistant.helpers.entity_platform", entity_platform)
     sys.modules.setdefault("homeassistant.helpers.issue_registry", issue_registry)
     sys.modules.setdefault("homeassistant.helpers.storage", storage)
     sys.modules.setdefault("homeassistant.util", util)

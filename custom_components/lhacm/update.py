@@ -32,7 +32,7 @@ async def async_setup_entry(
         if new_entities:
             async_add_entities(new_entities)
         for entity in entities.values():
-            entity.async_write_ha_state()
+            entity.repository_updated()
 
     entry.async_on_unload(
         async_dispatcher_connect(hass, SIGNAL_REPOSITORIES_UPDATED, sync_entities)
@@ -44,7 +44,12 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
     """A Home Assistant update entity for an LHACM repository."""
 
     _attr_device_class = UpdateDeviceClass.FIRMWARE
-    _attr_supported_features = UpdateEntityFeature.INSTALL | UpdateEntityFeature.RELEASE_NOTES
+    _attr_supported_features = (
+        UpdateEntityFeature.INSTALL
+        | UpdateEntityFeature.SPECIFIC_VERSION
+        | UpdateEntityFeature.PROGRESS
+        | UpdateEntityFeature.RELEASE_NOTES
+    )
 
     def __init__(self, runtime, repository_key: str) -> None:
         """Initialize entity."""
@@ -56,6 +61,26 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
     def repository(self) -> ManagedRepository | None:
         """Return the backing repository."""
         return self._runtime.repositories.get(self._repository_key)
+
+    def repository_updated(self) -> None:
+        """Write a fresh state after repository metadata changes."""
+        self._clear_cached_update_properties()
+        self.async_write_ha_state()
+
+    def _clear_cached_update_properties(self) -> None:
+        """Clear Home Assistant cached properties backed by repository data."""
+        for property_name in (
+            "device_info",
+            "entity_picture",
+            "installed_version",
+            "latest_version",
+            "release_summary",
+            "release_url",
+            "state",
+            "state_attributes",
+            "title",
+        ):
+            self.__dict__.pop(property_name, None)
 
     @property
     def name(self) -> str:
@@ -155,7 +180,7 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
         repository = self.repository
         if repository:
             await self._runtime.refresh_repository(repository)
-            self.async_write_ha_state()
+            self.repository_updated()
 
     async def async_install(
         self,
@@ -167,8 +192,14 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
         repository = self.repository
         if not repository:
             return
+        self._attr_in_progress = True
+        self.repository_updated()
         manager = self._runtime.manager_for_ref(repository.ref)
-        repository = await manager.async_install(repository, ref=version)
-        self._runtime.repositories[repository.key] = repository
-        await self._runtime.save()
-        await self._runtime.async_restart_required(repository, "updated")
+        try:
+            repository = await manager.async_install(repository, ref=version)
+            self._runtime.repositories[repository.key] = repository
+            await self._runtime.save()
+            await self._runtime.async_restart_required(repository, "updated")
+        finally:
+            self._attr_in_progress = False
+            self.repository_updated()
