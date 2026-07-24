@@ -236,6 +236,15 @@ async def lhacm_repository_versions(
             label = f"{label} (pre-release)"
         _append_version_option(versions, release.tag, label)
 
+    try:
+        tags = await manager.provider.get_tags(repository.ref)
+    except LHACMError as exception:
+        connection.send_error(msg["id"], "versions_error", str(exception))
+        return
+
+    for tag in tags:
+        _append_version_option(versions, tag, tag)
+
     connection.send_message(websocket_api.result_message(msg["id"], versions))
 
 

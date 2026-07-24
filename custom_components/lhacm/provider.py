@@ -42,6 +42,10 @@ class RepositoryProvider(ABC):
         """Get repository releases."""
 
     @abstractmethod
+    async def get_tags(self, ref: RepositoryRef) -> list[str]:
+        """Get repository tags."""
+
+    @abstractmethod
     def archive_url(self, ref: RepositoryRef, revision: str) -> str:
         """Return a URL that downloads a repository archive."""
 
@@ -145,6 +149,15 @@ class GitLabProvider(RepositoryProvider):
             for release in releases
         ]
 
+    async def get_tags(self, ref: RepositoryRef) -> list[str]:
+        """Get GitLab repository tags."""
+        tags = await self._request_json(
+            "GET",
+            f"{self._project_url(ref)}/repository/tags",
+            params={"per_page": 100},
+        )
+        return [tag["name"] for tag in tags if tag.get("name")]
+
     def archive_url(self, ref: RepositoryRef, revision: str) -> str:
         """Return GitLab archive URL."""
         return f"{self._project_url(ref)}/repository/archive.zip?sha={quote(revision, safe='')}"
@@ -244,6 +257,15 @@ class GiteaProvider(RepositoryProvider):
             )
             for release in releases
         ]
+
+    async def get_tags(self, ref: RepositoryRef) -> list[str]:
+        """Get Gitea repository tags."""
+        tags = await self._request_json(
+            "GET",
+            f"{self._repo_url(ref)}/tags",
+            params={"limit": 100},
+        )
+        return [tag["name"] for tag in tags if tag.get("name")]
 
     def archive_url(self, ref: RepositoryRef, revision: str) -> str:
         """Return Gitea archive URL."""

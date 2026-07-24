@@ -47,7 +47,7 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
     """A Home Assistant update entity for an LHACM repository."""
 
     _attr_device_class = UpdateDeviceClass.FIRMWARE
-    _attr_supported_features = UpdateEntityFeature.INSTALL
+    _attr_supported_features = UpdateEntityFeature.INSTALL | UpdateEntityFeature.SPECIFIC_VERSION
 
     def __init__(self, runtime, repository_key: str) -> None:
         """Initialize entity."""

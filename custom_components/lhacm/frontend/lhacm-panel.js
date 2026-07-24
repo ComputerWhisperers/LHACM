@@ -823,7 +823,9 @@ class LhacmPanel extends HTMLElement {
 
   _confirmDownload() {
     if (!this._versionDialog) return;
-    this._download(this._versionDialog.id, this._versionDialog.version || undefined);
+    const selected = this.shadowRoot.getElementById("versionInput");
+    const version = selected ? selected.value : this._versionDialog.version;
+    this._download(this._versionDialog.id, version || undefined);
   }
 
   _download(id, version) {
