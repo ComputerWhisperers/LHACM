@@ -233,7 +233,7 @@ async def lhacm_repository_versions(
         label = release.name or release.tag
         if release.prerelease:
             label = f"{label} (pre-release)"
-        _append_version_option(versions, release.tag, label)
+        _append_version_option(versions, release.tag, label, prefer_downloadable=True)
 
     try:
         tags = await manager.provider.get_tags(repository.ref)
@@ -241,7 +241,7 @@ async def lhacm_repository_versions(
         tags = []
 
     for tag in tags:
-        _append_version_option(versions, tag, tag)
+        _append_version_option(versions, tag, tag, prefer_downloadable=True)
 
     connection.send_message(websocket_api.result_message(msg["id"], versions))
 
@@ -386,14 +386,28 @@ def _append_version_option(
     versions: list[dict[str, str]],
     value: str | None,
     label: str | None,
+    *,
+    prefer_downloadable: bool = False,
 ) -> None:
     """Append a version option if it is not already present."""
     if not value:
         return
     normalized_value = _normalize_version_option(value)
-    if any(_normalize_version_option(option["value"]) == normalized_value for option in versions):
+    for option in versions:
+        if _normalize_version_option(option["value"]) != normalized_value:
+            continue
+        if prefer_downloadable:
+            option["value"] = value
+            option["label"] = _preferred_version_label(option["label"], value, label)
         return
     versions.append({"value": value, "label": label or value})
+
+
+def _preferred_version_label(existing_label: str, value: str, label: str | None) -> str:
+    """Return the visible label when a provider ref replaces a manifest version."""
+    if "(installed)" in existing_label:
+        return f"{value} (installed)"
+    return label or value
 
 
 def _normalize_version_option(value: str) -> str:

@@ -83,6 +83,26 @@ def test_repository_version_options_deduplicate_v_prefixed_versions() -> None:
     assert versions == [{"value": "1.0.0", "label": "1.0.0"}]
 
 
+def test_repository_version_options_prefer_downloadable_tag_ref() -> None:
+    """Provider tags replace manifest-only values for successful downloads."""
+    versions = []
+
+    _append_version_option(versions, "1.0.0", "1.0.0")
+    _append_version_option(versions, "v1.0.0", "v1.0.0", prefer_downloadable=True)
+
+    assert versions == [{"value": "v1.0.0", "label": "v1.0.0"}]
+
+
+def test_repository_version_options_prefer_downloadable_installed_tag_ref() -> None:
+    """Installed labels keep their state while switching to the provider tag ref."""
+    versions = []
+
+    _append_version_option(versions, "1.0.0", "1.0.0 (installed)")
+    _append_version_option(versions, "v1.0.0", "v1.0.0", prefer_downloadable=True)
+
+    assert versions == [{"value": "v1.0.0", "label": "v1.0.0 (installed)"}]
+
+
 def test_repository_version_options_keep_installed_v_prefix() -> None:
     """Redownload options preserve the installed tag spelling."""
     repository = ManagedRepository(
