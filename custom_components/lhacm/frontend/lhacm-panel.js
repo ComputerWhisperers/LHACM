@@ -93,7 +93,11 @@ class LhacmPanel extends HTMLElement {
   }
 
   _versionValue(value) {
-    return String(value == null ? "" : value).trim();
+    const normalized = String(value == null ? "" : value).trim();
+    if (normalized.startsWith("v") && normalized.length > 1 && /[0-9]/.test(normalized[1])) {
+      return normalized.slice(1);
+    }
+    return normalized;
   }
 
   _render() {
@@ -138,6 +142,12 @@ class LhacmPanel extends HTMLElement {
           display: flex;
           align-items: center;
           gap: 12px;
+          min-width: 0;
+        }
+        .topbar-title h1 {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         button, select, input {
           height: 36px;
@@ -514,7 +524,10 @@ class LhacmPanel extends HTMLElement {
         }
       </style>
       <header>
-        <div class="topbar-title"><h1>Local Home Assistant Component Manager</h1></div>
+        <div class="topbar-title">
+          <button class="icon-button" id="drawerButton" title="Open navigation" aria-label="Open navigation">&#9776;</button>
+          <h1>Local Home Assistant Component Manager</h1>
+        </div>
         <button class="icon-button" id="menuButton" title="Menu">&#8942;</button>
         ${this._menu ? `<div class="menu">
           <button id="docsButton">${this._menuIcon("document")}<span>Documentation</span></button>
@@ -639,6 +652,7 @@ class LhacmPanel extends HTMLElement {
       this._rowMenu = undefined;
       this._render();
     });
+    this._on("drawerButton", "click", () => this._toggleDrawer());
     this._on("customButton", "click", () => {
       this._menu = false;
       this._dialog = true;
@@ -699,6 +713,10 @@ class LhacmPanel extends HTMLElement {
     if (element) {
       element.addEventListener(eventName, handler);
     }
+  }
+
+  _toggleDrawer() {
+    this.dispatchEvent(new Event("hass-toggle-menu", { bubbles: true, composed: true }));
   }
 
   _addRepository() {

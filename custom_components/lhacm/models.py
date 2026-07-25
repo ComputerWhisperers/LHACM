@@ -176,8 +176,16 @@ class ManagedRepository:
         """Return whether the repository has a pending update."""
         if not self.installed:
             return False
-        installed_version = str(self.installed_version or "").strip()
-        available_version = self.available_version
+        installed_version = _normalized_version(self.installed_version)
+        available_version = _normalized_version(self.available_version)
         if available_version:
             return installed_version != available_version
         return bool(self.last_updated and self.installed_commit != self.last_updated)
+
+
+def _normalized_version(value: str | None) -> str:
+    """Return a version normalized for comparisons."""
+    normalized = str(value or "").strip()
+    if normalized.startswith("v") and len(normalized) > 1 and normalized[1].isdigit():
+        return normalized[1:]
+    return normalized

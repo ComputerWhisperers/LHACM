@@ -70,6 +70,20 @@ def test_manifest_version_pending_update_uses_normalized_strings() -> None:
     assert repository.status == "pending-upgrade"
 
 
+def test_v_prefixed_installed_version_matches_manifest_version() -> None:
+    """Installed tag spelling should not create a false pending update."""
+    repository = _repo(
+        installed=True,
+        installed_version="v1.0.28",
+        manifest_version="1.0.28",
+        last_updated="2026-07-25T10:00:00Z",
+    )
+
+    assert repository.available_version == "1.0.28"
+    assert repository.pending_update is False
+    assert repository.status == "installed"
+
+
 def test_refresh_keeps_installed_and_available_versions_separate() -> None:
     """Installed and remote versions must not collapse during refresh."""
     repository = _repo(
