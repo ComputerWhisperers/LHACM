@@ -150,8 +150,6 @@ class RepositoryManager:
     ) -> ManagedRepository:
         """Install a managed repository from its archive."""
         revision = ref or repository.last_version or repository.default_branch
-        if ref and not repository.last_version and ref == repository.available_version:
-            revision = repository.default_branch
         if not revision:
             raise LHACMError("No branch, tag, or release is available to install")
 

@@ -353,6 +353,18 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
 def _repository_version_options(repository: ManagedRepository) -> list[dict[str, str]]:
     """Return local version options before provider release options are added."""
     versions: list[dict[str, str]] = []
+    installed_matches_available = bool(
+        repository.installed_version
+        and repository.available_version
+        and _normalize_version_option(repository.installed_version)
+        == _normalize_version_option(repository.available_version)
+    )
+    if installed_matches_available:
+        _append_version_option(
+            versions,
+            repository.installed_version,
+            f"{repository.installed_version} (installed)",
+        )
     if repository.available_version:
         _append_version_option(versions, repository.available_version, repository.available_version)
     elif repository.default_branch:
@@ -361,7 +373,7 @@ def _repository_version_options(repository: ManagedRepository) -> list[dict[str,
             repository.default_branch,
             f"{repository.default_branch} (default branch)",
         )
-    if repository.installed_version and repository.installed_version != repository.available_version:
+    if repository.installed_version and not installed_matches_available:
         _append_version_option(
             versions,
             repository.installed_version,

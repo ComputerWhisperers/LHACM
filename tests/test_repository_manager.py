@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import asyncio
+from unittest.mock import AsyncMock
 
 from custom_components.lhacm.const import ProviderType, RepositoryCategory
 from custom_components.lhacm.models import ManagedRepository, RepositoryRef
@@ -20,6 +22,11 @@ def _repo(**kwargs) -> ManagedRepository:
         category=RepositoryCategory.INTEGRATION,
         **kwargs,
     )
+
+
+class _FakeHass:
+    async def async_add_executor_job(self, target, *args):
+        return target(*args)
 
 
 def test_installed_version_reads_local_manifest(tmp_path) -> None:
@@ -46,3 +53,17 @@ def test_installed_version_falls_back_without_local_manifest() -> None:
     manager = RepositoryManager(None, None)
 
     assert manager._installed_version(repository) == "1.0.0"
+
+
+def test_install_uses_selected_ref_when_it_matches_manifest_version() -> None:
+    """New installs must download the selected tag, not substitute the default branch."""
+    repository = _repo(default_branch="main", manifest_version="1.0.0")
+    manager = RepositoryManager(_FakeHass(), None)
+    manager._download_archive = AsyncMock(return_value=b"zip")
+    manager._extract_archive = lambda archive, repo: None
+    manager._target_path = lambda repo: "custom_components/demo"
+
+    installed = asyncio.run(manager.async_install(repository, ref="1.0.0"))
+
+    manager._download_archive.assert_awaited_once_with(repository.ref, "1.0.0")
+    assert installed.installed_version == "1.0.0"

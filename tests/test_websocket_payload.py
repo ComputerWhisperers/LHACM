@@ -83,6 +83,26 @@ def test_repository_version_options_deduplicate_v_prefixed_versions() -> None:
     assert versions == [{"value": "1.0.0", "label": "1.0.0"}]
 
 
+def test_repository_version_options_keep_installed_v_prefix() -> None:
+    """Redownload options preserve the installed tag spelling."""
+    repository = ManagedRepository(
+        ref=RepositoryRef(
+            provider=ProviderType.GITLAB,
+            base_url="https://gitlab.example.test",
+            owner="lab",
+            name="demo",
+        ),
+        category=RepositoryCategory.INTEGRATION,
+        installed=True,
+        installed_version="v1.0.0",
+        manifest_version="1.0.0",
+    )
+
+    assert _repository_version_options(repository) == [
+        {"value": "v1.0.0", "label": "v1.0.0 (installed)"},
+    ]
+
+
 def test_repository_payload_marks_manifest_update_pending() -> None:
     """Frontend payloads expose pending update rows when versions differ."""
     repository = ManagedRepository(
