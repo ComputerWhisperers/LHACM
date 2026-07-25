@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from .const import RepositoryCategory
-from .exceptions import RepositoryValidationError, LHACMError
+from .exceptions import LHACMError, ProviderNotFoundError, RepositoryValidationError
 from .models import ManagedRepository, RepositoryRef, SourceFile
 from .provider import RepositoryProvider
 
@@ -153,14 +153,17 @@ class RepositoryManager:
         if not revision:
             raise LHACMError("No branch, tag, or release is available to install")
 
-        archive = await self._download_archive(repository.ref, revision)
+        archive, installed_revision = await self._download_archive_with_fallbacks(
+            repository,
+            revision,
+        )
         await self.hass.async_add_executor_job(
             self._extract_archive,
             archive,
             repository,
         )
         repository.installed = True
-        repository.installed_version = ref or repository.last_version or repository.manifest_version or revision
+        repository.installed_version = installed_revision
         repository.installed_commit = repository.last_updated
         repository.installed_path = str(self._target_path(repository))
         return repository
@@ -229,6 +232,39 @@ class RepositoryManager:
         )
         await self.provider._raise_for_status(response)
         return await response.read()
+
+    async def _download_archive_with_fallbacks(
+        self,
+        repository: ManagedRepository,
+        revision: str,
+    ) -> tuple[bytes, str]:
+        """Download an archive, retrying common manifest/tag spelling variants."""
+        last_error: ProviderNotFoundError | None = None
+        for candidate in self._download_revision_candidates(repository, revision):
+            try:
+                return await self._download_archive(repository.ref, candidate), candidate
+            except ProviderNotFoundError as exception:
+                last_error = exception
+        if last_error:
+            raise last_error
+        raise LHACMError("No branch, tag, or release is available to install")
+
+    def _download_revision_candidates(
+        self,
+        repository: ManagedRepository,
+        revision: str,
+    ) -> list[str]:
+        """Return possible downloadable refs for a selected version."""
+        candidates = [revision]
+        for candidate in (
+            repository.last_version,
+            repository.installed_version,
+            f"v{revision}" if not revision.startswith("v") else revision[1:],
+            repository.default_branch if revision == repository.available_version else None,
+        ):
+            if candidate and candidate not in candidates:
+                candidates.append(candidate)
+        return candidates
 
     def _extract_archive(self, archive: bytes, repository: ManagedRepository) -> None:
         target = self._target_path(repository)
