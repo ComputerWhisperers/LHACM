@@ -224,9 +224,8 @@ async def lhacm_repository_versions(
     manager = runtime.manager_for_ref(repository.ref)
     try:
         releases = await manager.provider.get_releases(repository.ref)
-    except LHACMError as exception:
-        connection.send_error(msg["id"], "versions_error", str(exception))
-        return
+    except LHACMError:
+        releases = []
 
     for release in releases:
         if release.draft:
@@ -238,9 +237,8 @@ async def lhacm_repository_versions(
 
     try:
         tags = await manager.provider.get_tags(repository.ref)
-    except LHACMError as exception:
-        connection.send_error(msg["id"], "versions_error", str(exception))
-        return
+    except LHACMError:
+        tags = []
 
     for tag in tags:
         _append_version_option(versions, tag, tag)
@@ -328,6 +326,7 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
         "country": [],
         "custom": repository.custom,
         "description": repository.description or "",
+        "default_branch": repository.default_branch,
         "domain": repository.domain,
         "downloads": repository.downloads,
         "file_name": "",
@@ -379,9 +378,18 @@ def _append_version_option(
     """Append a version option if it is not already present."""
     if not value:
         return
-    if any(option["value"] == value for option in versions):
+    normalized_value = _normalize_version_option(value)
+    if any(_normalize_version_option(option["value"]) == normalized_value for option in versions):
         return
     versions.append({"value": value, "label": label or value})
+
+
+def _normalize_version_option(value: str) -> str:
+    """Normalize version option values for duplicate detection."""
+    normalized = str(value).strip().lower()
+    if normalized.startswith("v") and len(normalized) > 1 and normalized[1].isdigit():
+        return normalized[1:]
+    return normalized
 
 
 def _repository_info_payload(repository: ManagedRepository) -> dict[str, Any]:

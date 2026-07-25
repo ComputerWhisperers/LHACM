@@ -800,7 +800,9 @@ class LhacmPanel extends HTMLElement {
     this._versionDialog = { id, loading: true, versions: [], version: "", error: "" };
     this._render();
     this._send({ type: "lhacm/repository/versions", repository: id }).then((versions) => {
-      const options = versions && versions.length ? versions : [{ value: repo.available_version || "", label: repo.available_version || "Default" }];
+      const fallbackVersion = repo.available_version || repo.default_branch || "";
+      const fallbackLabel = repo.available_version || (repo.default_branch ? `${repo.default_branch} (default branch)` : "Default");
+      const options = versions && versions.length ? versions : [{ value: fallbackVersion, label: fallbackLabel }];
       this._versionDialog = {
         id,
         loading: false,
@@ -810,11 +812,13 @@ class LhacmPanel extends HTMLElement {
       };
       this._render();
     }).catch((err) => {
+      const fallbackVersion = repo.available_version || repo.default_branch || "";
+      const fallbackLabel = repo.available_version || (repo.default_branch ? `${repo.default_branch} (default branch)` : "Default");
       this._versionDialog = {
         id,
         loading: false,
-        versions: [{ value: repo.available_version || "", label: repo.available_version || "Default" }],
-        version: repo.available_version || "",
+        versions: [{ value: fallbackVersion, label: fallbackLabel }],
+        version: fallbackVersion,
         error: err.message || String(err),
       };
       this._render();
@@ -839,6 +843,12 @@ class LhacmPanel extends HTMLElement {
       this._repositories = repositories;
       this._versionDialog = undefined;
       this._render();
+    }).catch((err) => {
+      if (this._versionDialog) {
+        this._versionDialog.loading = false;
+        this._versionDialog.error = err.message || String(err);
+        this._render();
+      }
     });
   }
 

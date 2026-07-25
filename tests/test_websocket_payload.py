@@ -5,6 +5,7 @@ from __future__ import annotations
 from custom_components.lhacm.const import ProviderType, RepositoryCategory
 from custom_components.lhacm.models import ManagedRepository, RepositoryRef
 from custom_components.lhacm.websocket import (
+    _append_version_option,
     _repository_info_payload,
     _repository_payload,
     _repository_version_options,
@@ -52,6 +53,34 @@ def test_repository_version_options_include_manifest_version() -> None:
         {"value": "1.2.3", "label": "1.2.3"},
         {"value": "1.2.2", "label": "1.2.2 (installed)"},
     ]
+
+
+def test_repository_version_options_fall_back_to_default_branch() -> None:
+    """Repositories without release metadata can still download the default branch."""
+    repository = ManagedRepository(
+        ref=RepositoryRef(
+            provider=ProviderType.GITLAB,
+            base_url="https://gitlab.example.test",
+            owner="lab",
+            name="demo",
+        ),
+        category=RepositoryCategory.INTEGRATION,
+        default_branch="main",
+    )
+
+    assert _repository_version_options(repository) == [
+        {"value": "main", "label": "main (default branch)"},
+    ]
+
+
+def test_repository_version_options_deduplicate_v_prefixed_versions() -> None:
+    """Manifest and tag variants like 1.0.0 and v1.0.0 are one version option."""
+    versions = []
+
+    _append_version_option(versions, "1.0.0", "1.0.0")
+    _append_version_option(versions, "v1.0.0", "v1.0.0")
+
+    assert versions == [{"value": "1.0.0", "label": "1.0.0"}]
 
 
 def test_repository_payload_marks_manifest_update_pending() -> None:
