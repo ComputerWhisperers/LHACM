@@ -270,6 +270,7 @@ async def lhacm_repository_download(
     manager = runtime.manager_for_ref(repository.ref)
     try:
         repository = await manager.async_install(repository, ref=msg.get("version"))
+        repository = await manager.async_refresh(repository)
         runtime.repositories[repository.key] = repository
         await runtime.save()
         await runtime.async_restart_required(repository, "installed")
@@ -319,7 +320,7 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
     status = "pending-upgrade" if pending_update else repository.status
     return {
         "authors": [],
-        "available_version": repository.available_version,
+        "available_version": repository.display_available_version,
         "can_download": True,
         "category": repository.category.value,
         "config_flow": False,
@@ -334,7 +335,7 @@ def _repository_payload(repository: ManagedRepository) -> dict[str, Any]:
         "hide": False,
         "homeassistant": None,
         "id": repository.key,
-        "installed_version": repository.installed_version or "",
+        "installed_version": repository.display_installed_version,
         "installed": repository.installed,
         "last_updated": repository.last_updated or "",
         "local_path": "",

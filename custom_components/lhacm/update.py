@@ -78,7 +78,7 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
             "manufacturer": repository.ref.provider.value,
             "model": repository.category.value,
             "configuration_url": repository.source_url,
-            "sw_version": repository.installed_version,
+            "sw_version": repository.display_installed_version,
             "via_device": (DOMAIN, "lhacm"),
         }
 
@@ -100,13 +100,13 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
     def installed_version(self) -> str | None:
         """Return installed version."""
         repository = self.repository
-        return repository.installed_version if repository else None
+        return repository.display_installed_version if repository else None
 
     @property
     def latest_version(self) -> str | None:
         """Return latest version."""
         repository = self.repository
-        return repository.available_version if repository else None
+        return repository.display_available_version if repository else None
 
     @property
     def release_url(self) -> str | None:
@@ -146,6 +146,7 @@ class LHACMRepositoryUpdateEntity(UpdateEntity):
             return
         manager = self._runtime.manager_for_ref(repository.ref)
         repository = await manager.async_install(repository, ref=version)
+        repository = await manager.async_refresh(repository)
         self._runtime.repositories[repository.key] = repository
         await self._runtime.save()
         await self._runtime.async_restart_required(repository, "updated")

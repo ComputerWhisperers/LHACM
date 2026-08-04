@@ -145,3 +145,26 @@ def test_repository_payload_marks_manifest_update_pending() -> None:
     assert payload["available_version"] == "1.0.1"
     assert payload["pending_upgrade"] is True
     assert payload["status"] == "pending-upgrade"
+
+
+def test_repository_payload_strips_v_prefix_for_main_display() -> None:
+    """Main LHACM display should show clean version numbers without tag prefixes."""
+    repository = ManagedRepository(
+        ref=RepositoryRef(
+            provider=ProviderType.GITLAB,
+            base_url="https://gitlab.example.test",
+            owner="lab",
+            name="pitboss",
+        ),
+        category=RepositoryCategory.INTEGRATION,
+        name="PitBoss",
+        installed=True,
+        installed_version="v1.0.32",
+        last_version="v1.0.33",
+    )
+
+    payload = _repository_payload(repository)
+
+    assert payload["installed_version"] == "1.0.32"
+    assert payload["available_version"] == "1.0.33"
+    assert payload["pending_upgrade"] is True

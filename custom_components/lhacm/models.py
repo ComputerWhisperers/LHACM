@@ -163,6 +163,16 @@ class ManagedRepository:
         return str(self.last_version or self.manifest_version or "").strip()
 
     @property
+    def display_available_version(self) -> str:
+        """Return available version for user-facing displays."""
+        return display_version(self.available_version)
+
+    @property
+    def display_installed_version(self) -> str:
+        """Return installed version for user-facing displays."""
+        return display_version(self.installed_version)
+
+    @property
     def status(self) -> str:
         """Return HACS-like repository status."""
         if self.installed and self.pending_update:
@@ -185,6 +195,11 @@ class ManagedRepository:
 
 def _normalized_version(value: str | None) -> str:
     """Return a version normalized for comparisons."""
+    return display_version(value)
+
+
+def display_version(value: str | None) -> str:
+    """Return a version normalized for user-facing display."""
     normalized = str(value or "").strip()
     if normalized.startswith("v") and len(normalized) > 1 and normalized[1].isdigit():
         return normalized[1:]
