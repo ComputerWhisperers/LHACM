@@ -53,6 +53,7 @@ class LHACMRuntime:
     hass: HomeAssistant
     repositories: dict[str, ManagedRepository] = field(default_factory=dict)
     update_entities: dict[str, object] = field(default_factory=dict)
+    restart_required_repositories: dict[str, str] = field(default_factory=dict)
 
     def manager_for_ref(self, ref: RepositoryRef) -> RepositoryManager:
         """Create a repository manager for a repository reference."""
@@ -96,10 +97,12 @@ class LHACMRuntime:
         action: str,
     ) -> None:
         """Create a Home Assistant repair issue for repository file changes."""
-        issue_hash = hashlib.sha1(repository.key.encode()).hexdigest()[:12]
-        issue_id = f"restart_required_{issue_hash}"
+        issue_id = "restart_required"
+        legacy_issue_id = _legacy_restart_issue_id(repository.key)
+        self.restart_required_repositories[repository.key] = repository.display_name
         async_dismiss_notification(self.hass, f"{DOMAIN}_restart_required_{repository.key}")
-        ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+        ir.async_delete_issue(self.hass, DOMAIN, legacy_issue_id)
+        names = ", ".join(sorted(self.restart_required_repositories.values()))
         ir.async_create_issue(
             self.hass,
             DOMAIN,
@@ -107,17 +110,17 @@ class LHACMRuntime:
             breaks_in_ha_version=None,
             data={
                 "action": action,
-                "name": repository.display_name,
-                "repository": repository.key,
+                "name": names,
+                "repositories": sorted(self.restart_required_repositories),
             },
             is_fixable=True,
             is_persistent=True,
-            issue_domain=repository.domain or DOMAIN,
+            issue_domain=DOMAIN,
             severity=ir.IssueSeverity.WARNING,
             translation_key="restart_required",
             translation_placeholders={
                 "action": action,
-                "name": repository.display_name,
+                "name": names,
             },
         )
 
@@ -139,6 +142,12 @@ INSTALL_REPOSITORY_SCHEMA = vol.Schema(
 )
 
 REPOSITORY_KEY_SCHEMA = vol.Schema({vol.Required("repository"): str})
+
+
+def _legacy_restart_issue_id(repository_key: str) -> str:
+    """Return the pre-aggregate restart repair issue id for a repository."""
+    issue_hash = hashlib.sha1(repository_key.encode()).hexdigest()[:12]
+    return f"restart_required_{issue_hash}"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> bool:

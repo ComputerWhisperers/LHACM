@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 import voluptuous as vol
@@ -36,6 +37,12 @@ class RestartRequiredRepairFlow(RepairsFlow):
         """Ask the user to confirm the restart."""
         if user_input is not None:
             ir.async_delete_issue(self.hass, DOMAIN, self._issue_id)
+            for repository_key in self._data.get("repositories") or []:
+                ir.async_delete_issue(
+                    self.hass,
+                    DOMAIN,
+                    _legacy_restart_issue_id(str(repository_key)),
+                )
             await self.hass.services.async_call(
                 "homeassistant",
                 "restart",
@@ -59,3 +66,9 @@ async def async_create_fix_flow(
 ) -> RepairsFlow:
     """Create a repair flow."""
     return RestartRequiredRepairFlow(issue_id, data)
+
+
+def _legacy_restart_issue_id(repository_key: str) -> str:
+    """Return the pre-aggregate restart repair issue id for a repository."""
+    issue_hash = hashlib.sha1(repository_key.encode()).hexdigest()[:12]
+    return f"restart_required_{issue_hash}"
