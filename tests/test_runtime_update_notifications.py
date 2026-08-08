@@ -85,3 +85,28 @@ def test_restart_required_repairs_are_aggregated(monkeypatch) -> None:
         "gitlab:https://gitlab.example.test:lab/two",
     ]
     assert created[-1][1]["issue_domain"] == DOMAIN
+
+
+def test_restart_required_cleans_visible_legacy_repairs(monkeypatch) -> None:
+    """Creating the aggregate repair should clear existing legacy restart repairs."""
+    deleted = []
+    legacy_issue = SimpleNamespace(domain=DOMAIN, issue_id="restart_required_deadbeef1234")
+    runtime = LHACMRuntime(
+        store=FakeStore(),
+        session=None,
+        hass=SimpleNamespace(),
+        repositories={},
+    )
+
+    monkeypatch.setattr(ir, "async_create_issue", lambda *args, **kwargs: None)
+    monkeypatch.setattr(ir, "async_delete_issue", lambda *args, **kwargs: deleted.append(args))
+    monkeypatch.setattr(
+        ir,
+        "async_get",
+        lambda _hass: SimpleNamespace(issues={(DOMAIN, "restart_required_deadbeef1234"): legacy_issue}),
+        raising=False,
+    )
+
+    asyncio.run(runtime.async_restart_required(_repo("lab", "one", "One"), "updated"))
+
+    assert (runtime.hass, DOMAIN, "restart_required_deadbeef1234") in deleted

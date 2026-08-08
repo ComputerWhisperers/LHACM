@@ -98,10 +98,12 @@ class LHACMRuntime:
     ) -> None:
         """Create a Home Assistant repair issue for repository file changes."""
         issue_id = "restart_required"
-        legacy_issue_id = _legacy_restart_issue_id(repository.key)
         self.restart_required_repositories[repository.key] = repository.display_name
         async_dismiss_notification(self.hass, f"{DOMAIN}_restart_required_{repository.key}")
-        ir.async_delete_issue(self.hass, DOMAIN, legacy_issue_id)
+        _async_delete_restart_required_issues(
+            self.hass,
+            self.repositories.keys() | self.restart_required_repositories.keys(),
+        )
         names = ", ".join(sorted(self.restart_required_repositories.values()))
         ir.async_create_issue(
             self.hass,
@@ -150,6 +152,26 @@ def _legacy_restart_issue_id(repository_key: str) -> str:
     return f"restart_required_{issue_hash}"
 
 
+def _async_delete_restart_required_issues(
+    hass: HomeAssistant,
+    repository_keys,
+) -> None:
+    """Delete aggregate and legacy restart repair issues."""
+    ir.async_delete_issue(hass, DOMAIN, "restart_required")
+    for repository_key in repository_keys:
+        ir.async_delete_issue(hass, DOMAIN, _legacy_restart_issue_id(str(repository_key)))
+    registry = getattr(ir, "async_get", lambda _hass: None)(hass)
+    issues = getattr(registry, "issues", {}) or {}
+    for key, issue in list(issues.items()):
+        domain = getattr(issue, "domain", None)
+        issue_id = getattr(issue, "issue_id", None)
+        if isinstance(key, tuple) and len(key) >= 2:
+            domain = domain or key[0]
+            issue_id = issue_id or key[1]
+        if domain == DOMAIN and str(issue_id or "").startswith("restart_required_"):
+            ir.async_delete_issue(hass, DOMAIN, str(issue_id))
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> bool:
     """Set up LHACM from a config entry."""
     session = aiohttp_client.async_get_clientsession(hass)
@@ -160,6 +182,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: LHACMConfigEntry) -> boo
         hass=hass,
         repositories=await store.async_load(),
     )
+    _async_delete_restart_required_issues(hass, runtime.repositories.keys())
     entry.runtime_data = runtime
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime
     entry.async_on_unload(entry.add_update_listener(_async_options_updated))
